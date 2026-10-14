@@ -266,6 +266,32 @@ async def repick(slug: str, req: Request):
     return new_job("create", slug, run, "Find new moments")
 
 
+@app.post("/api/projects/{slug}/stitch")
+async def stitch(slug: str, req: Request):
+    """Join clips into one video: ids (default all rendered), order source|score|custom, transition cut|fade."""
+    body = await req.json()
+    p = editable(slug)
+    ids = body.get("ids") or None
+    order = body.get("order", "source")
+    if order not in ("source", "score", "custom"):
+        raise HTTPException(400, "order must be source, score or custom")
+    if len([c for c in p.clips if c.get("file") and (not ids or c["id"] in ids)]) < 2:
+        raise HTTPException(400, "pick at least two rendered clips")
+    return new_job("stitch", slug, lambda j: cs.stitch(project(slug), ids, order, body.get("transition", "cut")),
+                   f"Stitch {len(ids) if ids else 'all'} clips")
+
+
+@app.delete("/api/projects/{slug}/compilations/{n}")
+def delete_compilation(slug: str, n: int):
+    p = editable(slug)
+    for rec in [r for r in p.data.get("compilations", []) if r["n"] == n]:
+        for ext in (".mp4", ".jpg"):
+            (p.dir / rec["file"]).with_suffix(ext).unlink(missing_ok=True)
+    p.data["compilations"] = [r for r in p.data.get("compilations", []) if r["n"] != n]
+    p.save()
+    return {"ok": True}
+
+
 @app.delete("/api/projects/{slug}")
 def delete_project(slug: str):
     p = editable(slug)

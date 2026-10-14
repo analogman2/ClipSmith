@@ -77,6 +77,11 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .tr p:hover{background:#1f232a} .tr p.sel{background:#2d2a12} .tr p span{color:var(--mut);flex:none;width:44px;font-variant-numeric:tabular-nums}
 .log{background:#0b0c0f;border-radius:10px;padding:10px;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;max-height:300px;overflow:auto;color:#c8ccd4}
 .err{color:var(--bad)}
+.comps{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:0 0 22px}
+.comps .card video{max-height:390px}
+.pickbox{position:absolute;top:10px;left:10px;z-index:1;background:rgba(0,0,0,.6);border-radius:8px;padding:5px 8px;display:flex;gap:6px;align-items:center;font-size:12.5px;cursor:pointer}
+.pickbox input{width:auto;margin:0}
+h3.sec{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;margin:4px 0 10px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2a2e37;padding:10px 16px;border-radius:10px;z-index:20}
 @media (max-width:760px){.layout{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--line);max-height:30vh}.cols{grid-template-columns:1fr 1fr}#jobbar .pb{width:80px}}
 </style>
@@ -203,7 +208,7 @@ function drawJobs() {
 function openJobs() { drawJobs(); dJobs.showModal(); }
 
 // ------------------------------------------------ project view
-async function openProject(slug) { CUR = slug; drawProjects(); await loadProject(slug, true); }
+async function openProject(slug) { if (slug !== CUR) PICKED.clear(); CUR = slug; drawProjects(); await loadProject(slug, true); }
 async function loadProject(slug, force) {
   const p = await api('/api/projects/' + slug);
   if (!force && PROJ && JSON.stringify(p) === JSON.stringify(PROJ)) return;
@@ -219,8 +224,39 @@ function drawProject() {
     <button onclick="openTranscript()" ${p.busy ? 'disabled' : ''}>+ Clip from transcript</button>
     <button onclick="openRepick()" ${p.busy ? 'disabled' : ''}>Find new moments</button>
     <button onclick="openRestyle()" ${p.busy ? 'disabled' : ''}>Restyle all</button>
+    <button onclick="openStitch()" ${p.busy ? 'disabled' : ''}>Stitch clips</button>
     <button class="ghost danger" onclick="delProject()" ${p.busy ? 'disabled' : ''}>Delete</button></div>
+    ${(p.compilations || []).length ? `<h3 class="sec">Stitched videos</h3><div class="comps">${[...p.compilations].reverse().map(r => comp(r, p)).join('')}</div><h3 class="sec">Clips</h3>` : ''}
     <div class="grid">${clips.map(c => card(c, p, job)).join('')}</div>`;
+}
+function comp(r, p) {
+  const names = r.ids.map(i => (p.clips.find(c => c.id === i) || {}).title || '(deleted)');
+  const u = `/files/${p.slug}/${r.file}`;
+  return `<div class="card"><video src="${u}?v=${r.created}" poster="${u.replace(/\.mp4$/, '.jpg')}?v=${r.created}" controls preload="none" playsinline></video>
+    <div class="body"><b>${esc(r.file)}</b><div class="meta">${ts(r.length).replace(/\.\d$/, '')} · ${r.ids.length} clips · ${r.order} order · ${r.transition}</div>
+    <details><summary>Clips in it</summary><ol class="meta" style="padding-left:18px;margin:6px 0">${names.map(n => `<li>${esc(n)}</li>`).join('')}</ol></details>
+    <div class="actions"><a href="${u}" download><button>MP4</button></a><button class="ghost danger" onclick="delComp(${r.n})" ${p.busy ? 'disabled' : ''}>Delete</button></div></div></div>`;
+}
+async function delComp(n) { if (!confirm('Delete this stitched video?')) return; await api(`/api/projects/${CUR}/compilations/${n}`, {method: 'DELETE'}); loadProject(CUR, true); }
+const PICKED = new Set();
+function togglePick(id, on) { on ? PICKED.add(id) : PICKED.delete(id); }
+function openStitch() {
+  const ready = PROJ.clips.filter(c => c.file);
+  const chosen = ready.filter(c => PICKED.has(c.id));
+  $('#set-title').textContent = 'Stitch clips together';
+  $('#set-body').innerHTML = `<p class="meta">${chosen.length >= 2 ? `Joining the <b>${chosen.length} ticked clips</b>.` : `Joining <b>all ${ready.length} rendered clips</b>. Tick the boxes on the clips to choose fewer.`}</p>
+    <div class="cols" style="grid-template-columns:1fr 1fr">
+      <div><label>Order</label><select data-k="order"><option value="source">As in the original video</option><option value="score">Best first (by score)</option>${chosen.length >= 2 ? '<option value="custom">The order I ticked them</option>' : ''}</select></div>
+      <div><label>Between clips</label><select data-k="transition"><option value="cut">Hard cut</option><option value="fade">Crossfade</option></select></div>
+    </div>`;
+  $('#set-go').textContent = 'Stitch';
+  $('#set-go').onclick = async () => {
+    const f = readForm($('#set-body'));
+    if ((chosen.length >= 2 ? chosen : ready).length < 2) return toast('Need at least two rendered clips');
+    await api(`/api/projects/${CUR}/stitch`, {method: 'POST', body: {...f, ids: chosen.length >= 2 ? [...PICKED].filter(i => chosen.some(c => c.id === i)) : null}});
+    dSet.close(); toast('Stitching…'); poll();
+  };
+  dSet.showModal();
 }
 function card(c, p, job) {
   const o = c.overrides || {}, sc = c.scores || {};
@@ -229,7 +265,7 @@ function card(c, p, job) {
   const working = job && (job.kind === 'create' || job.label.includes(c.title) || job.label.startsWith('Re-render all'));
   const opt = (list, val) => `<option value="">(project)</option>` + list.map(x => `<option ${x === val ? 'selected' : ''}>${x}</option>`).join('');
   return `<div class="card a${asp === '916' ? '' : asp}" data-id="${c.id}">
-    ${working ? '<div class="overlay">working…</div>' : ''}${v}
+    ${working ? '<div class="overlay">working…</div>' : ''}${c.file ? `<label class="pickbox"><input type="checkbox" ${PICKED.has(c.id) ? 'checked' : ''} onchange="togglePick(${c.id},this.checked)"> stitch</label>` : ''}${v}
     <div class="body">
       <div class="top"><span class="score s${Math.floor((c.score || 0) / 10) * 10}">${c.score || '–'}</span><input class="f-title" value="${esc(c.title)}"></div>
       ${Object.keys(sc).length ? `<div class="bars">${['hook', 'flow', 'value', 'trend'].map(k => `<div>${k} ${sc[k] ?? ''}<i><b style="width:${sc[k] || 0}%"></b></i></div>`).join('')}</div>` : ''}

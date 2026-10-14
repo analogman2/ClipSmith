@@ -22,6 +22,8 @@ to free. It never falls back to the CPU.
 - **Clip from transcript**: select sentences and make your own clip.
 - **Find new moments**: ask the AI again with a new prompt, count or length.
 - **Restyle all**: re-render every clip with new captions, aspect, colors, logo or music.
+- **Stitch clips**: join all clips, or the ones you tick, into one video. Order them as in the
+  original, best first, or in the order you ticked them, with hard cuts or crossfades.
 - **Download**: MP4 and SRT, plus copy the caption and hashtags.
 
 Jobs run one at a time, because they share the GPU. The progress bar at the top shows the current one.
@@ -57,6 +59,7 @@ works, for example `{"highlight": "#FF3EA5", "logo": "~/brand/logo.png", "captio
 ./clipsmith.py talk.mp4 --prompt "the pricing story" --captions pop --aspect 4:5
 ./clipsmith.py talk.mp4 --clips 1:23-2:05,10:00-10:45   # cut by hand, skip the AI
 ./clipsmith.py talk.mp4 --dry-run                        # just show the picks
+./clipsmith.py talk.mp4 --stitch source --transition fade  # also join them into one video
 ```
 
 Run `./clipsmith.py -h` for everything. Transcripts and AI picks are cached in

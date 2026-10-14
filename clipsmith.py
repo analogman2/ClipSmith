@@ -1193,6 +1193,83 @@ def render_all(p: Project, only=None):
     return p
 
 
+# ---------------------------------------------------------------- stitching clips back together
+
+def stitch(p: Project, ids=None, order="source", transition="cut", fade=0.4):
+    """Join rendered clips into one video. order: source (as in the original video), score, or as
+    given in ids. transition: cut or fade (crossfade). Returns the compilation record."""
+    clips = [c for c in p.clips if c.get("file") and (p.dir / c["file"]).exists()]
+    if ids:
+        by_id = {c["id"]: c for c in clips}
+        clips = [by_id[i] for i in ids if i in by_id]
+    if order == "source":
+        clips.sort(key=lambda c: c["start"])
+    elif order == "score":
+        clips.sort(key=lambda c: -c.get("score", 0))
+    if len(clips) < 2:
+        raise SystemExit("Need at least two rendered clips to stitch.")
+    ow, oh = ASPECTS.get(p.settings.aspect, ASPECTS["9:16"])
+    fps = min(p.data["info"]["fps"], 60.0)
+    durs = [float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                  str(p.dir / c["file"])], capture_output=True, text=True).stdout) for c in clips]
+    fade = min(fade, min(durs) / 3) if transition == "fade" else 0.0
+    has_a = p.data["info"]["audio"]
+    log(f"[stitch] joining {len(clips)} clips ({order} order, {transition})...", 0.05)
+
+    inputs, g = [], []
+    for i, c in enumerate(clips):
+        inputs += ["-hwaccel", "cuda", "-i", str((p.dir / c["file"]).resolve())]
+        g.append(f"[{i}:v]scale={ow}:{oh}:force_original_aspect_ratio=decrease:flags=lanczos,"
+                 f"pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps:.4f},format=yuv420p,settb=AVTB[v{i}]")
+        if has_a:
+            g.append(f"[{i}:a]aresample=48000,aformat=channel_layouts=stereo[a{i}]")
+    n = len(clips)
+    if transition == "fade":
+        v, a, t = "v0", "a0", 0.0
+        for i in range(1, n):
+            t += durs[i - 1] - fade
+            g.append(f"[{v}][v{i}]xfade=transition=fade:duration={fade:.3f}:offset={t:.3f}[vx{i}]")
+            v = f"vx{i}"
+            if has_a:
+                g.append(f"[{a}][a{i}]acrossfade=d={fade:.3f}[ax{i}]")
+                a = f"ax{i}"
+        vout, aout = v, a
+    else:
+        g.append("".join(f"[v{i}]" + (f"[a{i}]" if has_a else "") for i in range(n)) +
+                 f"concat=n={n}:v=1:a={1 if has_a else 0}[vc]" + ("[ac]" if has_a else ""))
+        vout, aout = "vc", "ac"
+    if has_a:
+        g.append(f"[{aout}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
+    p.work.mkdir(parents=True, exist_ok=True)
+    graph = p.work / "stitch.filter"
+    graph.write_text(";\n".join(g))
+    k = 1 + max((x.get("n", 0) for x in p.data.get("compilations", [])), default=0)
+    out = p.dir / f"compilation_{k:02d}.mp4"
+    s = p.settings
+    enc = s.encoder if s.encoder != "auto" else ("nvenc" if nvenc_ok() else "x264")
+    venc = (["-c:v", "h264_nvenc", "-preset", "p7", "-tune", "hq", "-rc", "vbr", "-cq", "19", "-b:v", "0",
+             "-maxrate", s.maxrate, "-bufsize", "32M"] if enc == "nvenc"
+            else ["-c:v", "libx264", "-preset", "slow", "-crf", "18", "-maxrate", s.maxrate, "-bufsize", "32M"])
+    cmd = ["ffmpeg", "-v", "error", "-y"] + inputs + ["-filter_complex_script", str(graph.resolve()), "-map", f"[{vout}]"]
+    if has_a:
+        cmd += ["-map", "[aout]", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
+    cmd += venc + ["-profile:v", "high", "-pix_fmt", "yuv420p", "-g", str(int(round(fps * 2))),
+                   "-movflags", "+faststart", str(out.resolve())]
+    t0 = time.time()
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(f"ffmpeg failed while stitching:\n{r.stderr[-3000:]}")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "1.2", "-i", str(out), "-frames:v", "1", "-q:v", "3",
+                    str(out.with_suffix(".jpg"))], check=False)
+    length = sum(durs) - fade * (n - 1)
+    rec = {"n": k, "file": out.name, "ids": [c["id"] for c in clips], "order": order, "transition": transition,
+           "length": round(length, 2), "created": time.time()}
+    p.data.setdefault("compilations", []).append(rec)
+    p.save()
+    log(f"[stitch] {out.name}: {len(clips)} clips, {fmt_ts(length)} long, {time.time() - t0:.0f}s to render", 1.0)
+    return rec
+
+
 # ---------------------------------------------------------------- static gallery (the web app is richer)
 
 def write_gallery(p: Project):
@@ -1271,6 +1348,9 @@ def main():
     p.add_argument("--brand", default=str(HERE / "brand.json"), help="JSON of default settings (fonts, colors, logo...)")
     p.add_argument("--encoder", choices=["auto", "nvenc", "x264"])
     p.add_argument("--dry-run", action="store_true", help="pick the moments and stop before rendering")
+    p.add_argument("--stitch", choices=["source", "score"],
+                   help="also join the clips into one video, in source order or best-first")
+    p.add_argument("--transition", choices=["cut", "fade"], default="cut", help="between stitched clips")
     p.add_argument("--reselect", action="store_true", help="ask the AI again instead of reusing its last picks")
     p.add_argument("--retranscribe", action="store_true")
     args = p.parse_args()
@@ -1286,6 +1366,8 @@ def main():
     if args.dry_run:
         return
     render_all(proj)
+    if args.stitch:
+        stitch(proj, order=args.stitch, transition=args.transition)
     ok = sum(1 for c in proj.clips if c.get("file"))
     log(f"[4/4] done in {time.time() - t0:.0f}s: {ok} shorts in {proj.dir}/ (open {proj.dir / 'index.html'})", 1.0)
 
