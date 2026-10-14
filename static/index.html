@@ -20,9 +20,9 @@
   --hair:rgba(255,255,255,.08); --hair2:rgba(255,255,255,.14);
   --text:#f5f5f7; --text2:rgba(235,235,245,.62); --text3:rgba(235,235,245,.34);
   --accent:#0a84ff; --accent2:#409cff; --accent-weak:rgba(10,132,255,.22);
-  --sel:#ffd60a; --danger:#ff453a; --green:#30d158; --orange:#ff9f0a; --purple:#bf5af2;
+  --sel:#ffd60a; --danger:#ff453a; --yellow:#ffd60a; --green:#30d158; --orange:#ff9f0a; --purple:#bf5af2;
   --stage:#000; --tl:#161618; --ruler:#1d1d1f; --clip:#3d5bd6; --clip2:#24366f; --cliphead:#4a68e3;
-  --region:#2f9e44; --region2:#1f6e2f; --regionlab:#8ce99a;
+  --region:rgba(48,209,88,.62); --region2:rgba(48,209,88,.16); --regionlab:#fff;
   --shadow:0 10px 40px rgba(0,0,0,.55),0 0 0 .5px rgba(255,255,255,.12);
   --blur:saturate(180%) blur(24px);
   --sp:cubic-bezier(.2,.9,.25,1.12); --ease:cubic-bezier(.25,.1,.25,1);
@@ -34,18 +34,18 @@
   --elev:#ffffff; --elev2:#f2f2f4; --field:rgba(118,118,128,.12); --field2:rgba(118,118,128,.2);
   --hair:rgba(0,0,0,.09); --hair2:rgba(0,0,0,.14);
   --text:#1d1d1f; --text2:rgba(60,60,67,.66); --text3:rgba(60,60,67,.36);
-  --accent:#007aff; --accent2:#0a6cff; --accent-weak:rgba(0,122,255,.14); --sel:#ffcc00; --danger:#ff3b30; --green:#34c759;
+  --accent:#007aff; --accent2:#0a6cff; --accent-weak:rgba(0,122,255,.14); --sel:#ffcc00; --danger:#ff3b30; --yellow:#ffcc00; --green:#34c759;
   --tl:#f0f0f2; --ruler:#e9e9ec; --clip:#5b7cf0; --clip2:#c9d4fb; --cliphead:#5b7cf0;
-  --region:#5dbb6a; --region2:#cdebd2; --regionlab:#1f5f2b;
+  --region:rgba(52,199,89,.78); --region2:rgba(52,199,89,.16); --regionlab:#fff;
   --shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.12); color-scheme:light}}
 :root[data-theme="light"]{
   --app:#d7d7db; --bg:#f5f5f7; --pane:#ffffff; --pane2:rgba(246,246,248,.82); --sidebar:rgba(236,236,240,.78);
   --elev:#ffffff; --elev2:#f2f2f4; --field:rgba(118,118,128,.12); --field2:rgba(118,118,128,.2);
   --hair:rgba(0,0,0,.09); --hair2:rgba(0,0,0,.14);
   --text:#1d1d1f; --text2:rgba(60,60,67,.66); --text3:rgba(60,60,67,.36);
-  --accent:#007aff; --accent2:#0a6cff; --accent-weak:rgba(0,122,255,.14); --sel:#ffcc00; --danger:#ff3b30; --green:#34c759;
+  --accent:#007aff; --accent2:#0a6cff; --accent-weak:rgba(0,122,255,.14); --sel:#ffcc00; --danger:#ff3b30; --yellow:#ffcc00; --green:#34c759;
   --tl:#f0f0f2; --ruler:#e9e9ec; --clip:#5b7cf0; --clip2:#c9d4fb; --cliphead:#5b7cf0;
-  --region:#5dbb6a; --region2:#cdebd2; --regionlab:#1f5f2b;
+  --region:rgba(52,199,89,.78); --region2:rgba(52,199,89,.16); --regionlab:#fff;
   --shadow:0 12px 40px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.12); color-scheme:light}
 
 /* ---------- base ---------- */
@@ -154,12 +154,12 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .tile.a45 .th{aspect-ratio:4/5} .tile.a11 .th{aspect-ratio:1/1} .tile.wide .th{aspect-ratio:16/10}
 .tile .th img{width:100%;height:100%;object-fit:cover;display:block}
 .tile:hover .th{box-shadow:0 0 0 1px var(--hair2),0 6px 18px rgba(0,0,0,.25)}
-.tile.on .th{box-shadow:0 0 0 3px var(--sel),0 6px 18px rgba(0,0,0,.25)}
+.tile.on .th{box-shadow:0 0 0 3px var(--accent),0 6px 18px rgba(0,0,0,.25)}
 .tile .nm{font-size:12px;margin-top:6px;line-height:1.28;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
 .tile .dot{position:absolute;left:6px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px rgba(0,0,0,.35);z-index:1}
 .tile .sc{position:absolute;right:5px;bottom:5px;font-size:11px;font-weight:700;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   color:#fff;border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
-.tile .sc.hot{background:var(--sel);color:#000}
+.tile .sc.hot{background:var(--accent);color:#fff}
 .tile .busy{position:absolute;inset:0;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:grid;place-items:center;font-size:12px;color:#fff;font-weight:500}
 .tile .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--text3);font-size:11.5px;text-align:center;padding:6px;background:var(--field)}
 
@@ -188,7 +188,7 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .wh .cap{text-transform:capitalize}
 .wh .in{position:relative;width:var(--s);height:var(--s)}
 .wh .ringw{position:absolute;inset:0;border-radius:50%;
-  background:conic-gradient(from 225deg,#5e5ce6,#bf5af2 calc(var(--v)*.25deg),#ff375f calc(var(--v)*.5deg),#ff9f0a calc(var(--v)*.75deg),#ffd60a calc(var(--v)*1deg),var(--field) 0);
+  background:conic-gradient(from 225deg,var(--rc) calc(var(--v)*1deg),var(--field) 0);
   -webkit-mask:radial-gradient(circle,transparent 60%,#000 61%);mask:radial-gradient(circle,transparent 60%,#000 61%)}
 .wh .in i{position:absolute;inset:20%;border-radius:50%;background:var(--elev);box-shadow:0 0 0 .5px var(--hair2),0 2px 8px rgba(0,0,0,.2)}
 .wh .in b{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--s)*.24);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
@@ -228,9 +228,9 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .rg{position:absolute;top:15px;bottom:0;border-radius:6px;overflow:hidden;cursor:default;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.25);transition:box-shadow .12s,filter .12s}
 .rg:hover{filter:brightness(1.08)}
 .rg .lab{font-size:10.5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)}
-.lane.clips .rg{background:var(--region2)}
+.lane.clips .rg{background:var(--region2);box-shadow:inset 0 0 0 1px var(--region)}
 .lane.clips .rg .lab{background:var(--region);color:#fff;text-shadow:none}
-.lane.clips .rg .body{position:absolute;inset:18px 0 0;background:repeating-linear-gradient(90deg,var(--region) 0 1.5px,transparent 1.5px 5px);opacity:.45}
+.lane.clips .rg .body{position:absolute;inset:18px 0 0;background:repeating-linear-gradient(90deg,var(--region) 0 1px,transparent 1px 6px);opacity:.25}
 .lane.clips .rg.on{box-shadow:0 0 0 2.5px var(--sel);z-index:2}
 .lane.clips .rg.nofile{opacity:.55}
 .story{position:absolute;top:15px;height:98px;border-radius:7px;background:var(--clip2);overflow:hidden;cursor:text;box-shadow:inset 0 0 0 1px var(--clip)}
@@ -254,11 +254,12 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .fxgrid h4{margin:2px 0 8px;font-size:12px;color:var(--text2);font-weight:600}
 .fxtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:14px 10px;margin-bottom:14px}
 .fxt{cursor:default;transition:transform .2s var(--sp)} .fxt:active{transform:scale(.96)}
-.fxt .pv{aspect-ratio:16/10;border-radius:8px;overflow:hidden;position:relative;background:linear-gradient(160deg,#6b4b3a,#c07a4a 55%,#3a2a24);
+.fxt .pv{aspect-ratio:16/10;border-radius:8px;overflow:hidden;position:relative;background:#2c2c2e center 30%/cover no-repeat;
   box-shadow:0 0 0 1px var(--hair),0 2px 6px rgba(0,0,0,.18);transition:box-shadow .15s}
 .fxt:hover .pv{box-shadow:0 0 0 1px var(--hair2),0 6px 16px rgba(0,0,0,.25)}
-.fxt.on .pv{box-shadow:0 0 0 3px var(--sel),0 6px 16px rgba(0,0,0,.25)}
+.fxt.on .pv{box-shadow:0 0 0 3px var(--accent),0 6px 16px rgba(0,0,0,.25)}
 .fxt .nm{font-size:11.5px;margin-top:5px;color:var(--text);font-weight:500}
+.fxt .pv svg{color:var(--text2)} .fxt.on .pv svg{color:var(--accent)}
 .fxt .dot{position:absolute;left:5px;top:5px;width:7px;height:7px;border-radius:50%;background:var(--accent);z-index:1;box-shadow:0 0 0 2px rgba(0,0,0,.3)}
 .pvtxt{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:16%;font:800 12px/1 var(--font);color:#fff;
   text-shadow:0 0 2px #000,0 0 2px #000,0 1px 3px #000;letter-spacing:.02em}
@@ -688,12 +689,13 @@ function drawBrowser() {
   let html = '', n = 0;
   if (v === 'clips') {
     const cs = clipsSorted().filter(c => !q || (c.title + ' ' + (c.topic || '')).toLowerCase().includes(q)); n = cs.length;
+    const topScore = Math.max(0, ...PROJ.clips.map(c => c.score || 0));
     html = cs.map(c => { const asp = ((c.overrides || {}).aspect || c.aspect || PROJ.settings.aspect || '9:16').replace(':', '');
       const busy = job && (job.kind === 'create' || job.label.includes(c.title) || job.label.startsWith('Re-render all'));
       return `<div class="tile ${asp === '916' ? '' : 'a' + asp} ${SELKIND === 'clip' && SEL === c.id ? 'on' : ''}" onclick="select('clip',${c.id})" ondblclick="togglePlay()">
         <div class="th">${!SEEN.has(CUR + ':' + c.id) ? '<span class="dot" title="new"></span>' : ''}
         ${c.file ? `<img src="${fileUrl(c.file.replace(/\.mp4$/, '.jpg'))}?v=${c.rendered || 0}" loading="lazy" alt="">` : `<div class="ph">${c.error ? '<span class="err">failed</span>' : 'not rendered'}</div>`}
-        <span class="sc ${(c.score || 0) >= 90 ? 'hot' : ''}">${c.score || '–'}</span>${busy ? '<div class="busy">working…</div>' : ''}</div>
+        <span class="sc ${c.score && c.score === topScore ? 'hot' : ''}" ${c.score && c.score === topScore ? 'title="Best clip in this project"' : ''}>${c.score || '–'}</span>${busy ? '<div class="busy">working…</div>' : ''}</div>
         <div class="nm">${esc(c.title)}</div></div>`; }).join('');
   } else if (v === 'chapters') {
     const ms = (PROJ.map || []).map((c, i) => ({...c, i})).filter(c => !q || c.title.toLowerCase().includes(q)); n = ms.length;
@@ -756,7 +758,8 @@ function pf(c) {
   return {instagram: p.instagram || {caption: c.caption || '', hashtags: c.hashtags || []}, tiktok: p.tiktok || {caption: '', hashtags: []},
     youtube: p.youtube || {title: '', description: '', tags: []}};
 }
-const wheel = (label, v, s) => `<div class="wh"><span class="cap">${label}</span><div class="in" style="--s:${s}px"><div class="ringw" style="--v:${Math.round((v || 0) * 2.7)}"></div><i></i><b>${v ?? '–'}</b></div></div>`;
+const ringColor = v => v >= 85 ? 'var(--green)' : v >= 70 ? 'var(--yellow)' : 'var(--danger)';
+const wheel = (label, v, s) => `<div class="wh"><span class="cap">${label}</span><div class="in" style="--s:${s}px"><div class="ringw" style="--v:${Math.round((v || 0) * 2.7)};--rc:${ringColor(v || 0)}"></div><i></i><b>${v ?? '–'}</b></div></div>`;
 function drawInspector() {
   const B = $('#ibody');
   if (!PROJ) { B.innerHTML = '<p class="mut">No project open.</p>'; $('#iname').textContent = ''; return; }
@@ -863,7 +866,7 @@ async function delComp(n) { if (!confirm('Delete this stitched video?')) return;
 async function delProject() { if (!CUR || !confirm('Delete this project and all its clips? (The source video is kept.)')) return; await api('/api/projects/' + CUR, {method: 'DELETE'}); location.reload(); }
 
 // ------------------------------------------------ timeline
-const heat = e => `hsl(${Math.round(220 - e * 1.9)} 70% ${Math.round(30 + e * 0.18)}%)`;
+const heat = e => `hsl(211 ${Math.round(35 + e * 0.6)}% ${Math.round(24 + e * 0.3)}%)`;   // system-blue family, stronger = more engaging
 function zoomFit() { if (!PROJ) return; const w = $('#tlscroll').clientWidth - 30; PX = Math.max(0.3, w / PROJ.info.duration); drawTimeline(); }
 function zoom(f) { if (!PROJ) return; const sc = $('#tlscroll'), mid = (sc.scrollLeft + sc.clientWidth / 2) / PX; PX = Math.min(80, Math.max(0.3, PX * f)); drawTimeline(); sc.scrollLeft = mid * PX - sc.clientWidth / 2; }
 function drawTimeline() {
@@ -913,20 +916,26 @@ function fxPreview(st) {
   return `<div class="pvtxt" style="${st === 'clean' ? 'font-weight:600' : ''}">${SAMPLE[st].map((x, i) => `<span style="${(st !== 'clean' && i === 1) || (st === 'karaoke' && i < 2) ? 'color:' + hi : ''}">${x}</span>`).join('&nbsp;')}</div>`;
 }
 const layoutPv = l => `<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%" fill="none" stroke-width="1.5">${{
-  auto: '<rect x="38" y="6" width="24" height="38" rx="2" stroke="#fff" fill="#fff3"/><circle cx="50" cy="20" r="5" fill="#fff"/>',
-  track: '<rect x="44" y="6" width="24" height="38" rx="2" stroke="#ffe500" fill="#ffe50022"/><path d="M30 25h12m-3-3 3 3-3 3" stroke="#fff"/>',
-  split: '<rect x="38" y="6" width="24" height="18" stroke="#fff" fill="#fff3"/><rect x="38" y="26" width="24" height="18" stroke="#fff" fill="#fff3"/>',
-  fit: '<rect x="38" y="6" width="24" height="38" fill="#fff2"/><rect x="38" y="18" width="24" height="14" fill="#fff"/>',
-  center: '<rect x="38" y="6" width="24" height="38" rx="2" stroke="#fff" fill="#fff3"/><path d="M50 6v38" stroke="#fff6" stroke-dasharray="2 2"/>'}[l]}</svg>`;
-const aspectPv = a => { const [w, h] = a.split(':').map(Number), H = 38, Wd = H * w / h; return `<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><rect x="${50 - Wd / 2}" y="6" width="${Wd}" height="${H}" rx="2" fill="#fff3" stroke="#fff" stroke-width="1.5"/></svg>`; };
+  auto: '<rect x="38" y="6" width="24" height="38" rx="2" stroke="currentColor" fill="currentColor" fill-opacity=".18"/><circle cx="50" cy="20" r="5" fill="currentColor"/>',
+  track: '<rect x="44" y="6" width="24" height="38" rx="2" stroke="var(--accent)" fill="var(--accent)" fill-opacity=".15"/><path d="M30 25h12m-3-3 3 3-3 3" stroke="currentColor"/>',
+  split: '<rect x="38" y="6" width="24" height="18" stroke="currentColor" fill="currentColor" fill-opacity=".18"/><rect x="38" y="26" width="24" height="18" stroke="currentColor" fill="currentColor" fill-opacity=".18"/>',
+  fit: '<rect x="38" y="6" width="24" height="38" fill="currentColor" fill-opacity=".15"/><rect x="38" y="18" width="24" height="14" fill="currentColor"/>',
+  center: '<rect x="38" y="6" width="24" height="38" rx="2" stroke="currentColor" fill="currentColor" fill-opacity=".18"/><path d="M50 6v38" stroke="currentColor" stroke-opacity=".5" stroke-dasharray="2 2"/>'}[l]}</svg>`;
+const aspectPv = a => { const [w, h] = a.split(':').map(Number), H = 38, Wd = H * w / h; return `<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><rect x="${50 - Wd / 2}" y="6" width="${Wd}" height="${H}" rx="2" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.5"/></svg>`; };
+function fxFrame() {   // a clean frame from the video (no captions) for the caption previews
+  if (!PROJ) return '';
+  const c = selClip() || clipsSorted()[0], t = c ? c.start + Math.min(2, (c.end - c.start) / 3) : PROJ.info.duration * 0.1;
+  return `background-image:linear-gradient(rgba(0,0,0,.05),rgba(0,0,0,.35)),url('/api/projects/${CUR}/frame/${Math.round(t * 10)}')`;
+}
 function fxItems() {
   const c = selClip(), o = (c && c.overrides) || {}, s = PROJ ? PROJ.settings : META.defaults, cur = k => o[k] || s[k];
+  const neutral = 'background-color:var(--elev2)';
   return {
-    Captions: META.captions.map(x => ({k: 'captions', v: x, name: x === 'none' ? 'No captions' : x[0].toUpperCase() + x.slice(1), pv: fxPreview(x), on: cur('captions') === x, isNew: ['karaoke', 'pop'].includes(x)})),
-    Layouts: META.layouts.map(x => ({k: 'layout', v: x, name: {auto: 'Auto reframe', track: 'Follow speaker', split: 'Split screen', fit: 'Fit + blur', center: 'Center crop'}[x], pv: layoutPv(x), on: cur('layout') === x, bg: '#2a3346'})),
-    Aspect: META.aspects.map(x => ({k: 'aspect', v: x, name: {'9:16': 'Reels / Shorts 9:16', '4:5': 'Feed 4:5', '1:1': 'Square 1:1'}[x], pv: aspectPv(x), on: cur('aspect') === x, bg: '#2f2f3a'})),
-    Stitch: [{k: 'stitch', v: 'cut', name: 'Hard cut', bg: '#3a2f46', pv: '<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><rect x="14" y="10" width="34" height="30" fill="#fff4"/><rect x="52" y="10" width="34" height="30" fill="#fff8"/></svg>'},
-      {k: 'stitch', v: 'fade', name: 'Crossfade', bg: '#3a2f46', isNew: true, pv: '<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><defs><linearGradient id="fg"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity=".85"/></linearGradient></defs><rect x="14" y="10" width="72" height="30" fill="url(#fg)"/></svg>'}],
+    Captions: META.captions.map(x => ({k: 'captions', v: x, name: x === 'none' ? 'No captions' : x[0].toUpperCase() + x.slice(1), pv: fxPreview(x), on: cur('captions') === x, isNew: ['karaoke', 'pop'].includes(x), bg: fxFrame()})),
+    Layouts: META.layouts.map(x => ({k: 'layout', v: x, name: {auto: 'Auto reframe', track: 'Follow speaker', split: 'Split screen', fit: 'Fit + blur', center: 'Center crop'}[x], pv: layoutPv(x), on: cur('layout') === x, bg: neutral})),
+    Aspect: META.aspects.map(x => ({k: 'aspect', v: x, name: {'9:16': 'Reels / Shorts 9:16', '4:5': 'Feed 4:5', '1:1': 'Square 1:1'}[x], pv: aspectPv(x), on: cur('aspect') === x, bg: neutral})),
+    Stitch: [{k: 'stitch', v: 'cut', name: 'Hard cut', bg: 'background-color:var(--elev2)', pv: '<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><rect x="14" y="10" width="34" height="30" rx="3" fill="currentColor" fill-opacity=".25"/><rect x="52" y="10" width="34" height="30" rx="3" fill="currentColor" fill-opacity=".55"/></svg>'},
+      {k: 'stitch', v: 'fade', name: 'Crossfade', bg: 'background-color:var(--elev2)', isNew: true, pv: '<svg viewBox="0 0 100 50" style="position:absolute;inset:0;width:100%;height:100%"><defs><linearGradient id="fg"><stop offset="0" stop-color="currentColor" stop-opacity=".15"/><stop offset="1" stop-color="currentColor" stop-opacity=".7"/></linearGradient></defs><rect x="14" y="10" width="72" height="30" fill="url(#fg)"/></svg>'}],
   };
 }
 function drawFx() {
@@ -937,7 +946,7 @@ function drawFx() {
   $('#fxgrid').innerHTML = Object.entries(items).filter(([k]) => fxCat === 'All' || fxCat === k).map(([k, list]) => {
     list = list.filter(x => !q || x.name.toLowerCase().includes(q)); n += list.length;
     return list.length ? `<h4>${k}</h4><div class="fxtiles">${list.map(x => `<div class="fxt ${x.on ? 'on' : ''}" onclick="applyFx('${x.k}','${x.v}',false)" ondblclick="applyFx('${x.k}','${x.v}',true)">
-      <div class="pv" style="${x.bg ? 'background:' + x.bg : ''}">${x.isNew ? '<span class="dot"></span>' : ''}${x.pv}</div><div class="nm">${esc(x.name)}</div></div>`).join('')}</div>` : '';
+      <div class="pv" style="${x.bg || ''}">${x.isNew ? '<span class="dot"></span>' : ''}${x.pv}</div><div class="nm">${esc(x.name)}</div></div>`).join('')}</div>` : '';
   }).join('');
   $('#fxcount').textContent = `${n} items`;
 }

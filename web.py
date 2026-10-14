@@ -596,6 +596,21 @@ def media(slug: str, name: str):
     return FileResponse(out)
 
 
+@app.get("/api/projects/{slug}/frame/{tenths}")
+def frame(slug: str, tenths: int):
+    """A clean frame (no captions) from the source at tenths/10 s, 480 wide, cached."""
+    p = project(slug)
+    t = max(0.0, min(tenths / 10, p.data["info"]["duration"] - 0.1))
+    out = p.work / "frames" / f"{int(t * 10)}.jpg"
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        __import__("subprocess").run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", p.data["video"], "-frames:v", "1",
+                                      "-vf", "scale=480:-2", "-q:v", "4", str(out)], check=False)
+        if not out.exists():
+            raise HTTPException(404)
+    return FileResponse(out, headers={"Cache-Control": "max-age=86400"})
+
+
 @app.get("/files/{slug}/{name:path}")
 def files(slug: str, name: str):
     p = project(slug)
