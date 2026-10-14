@@ -10,6 +10,7 @@ GPU only: Whisper runs on CUDA and the picker model must sit fully in VRAM, or c
 what to free. It never falls back to the CPU. `./serve.sh` starts the web app (web.py) on top of this.
 """
 import argparse
+import contextlib
 import dataclasses
 import gc
 import hashlib
@@ -21,6 +22,7 @@ import random
 import re
 import subprocess
 import sys
+import threading
 import time
 import unicodedata
 import urllib.error
@@ -110,9 +112,9 @@ class Settings:
     min: float = 20
     max: float = 60
     prompt: str = ""                 # "find moments about pricing"
-    model: str = "qwen3.6:27b"
+    model: str = "qwen3.6-agent"     # the same loaded 27B as Agentora's Hermes and radio (no second copy on the card)
     think: bool = False
-    ollama: str = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    ollama: str = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11435")   # Agentora's GPU-broker proxy in front of Ollama
     whisper: str = "large-v3-turbo"
     language: str = ""
     aspect: str = "9:16"
@@ -139,12 +141,17 @@ class Settings:
     look: str = "natural"            # color grade: see LOOKS
     broll_style: str = "cinematic"   # AI B-roll images: cinematic | lifestyle | minimal | illustrated
     vision: bool = True              # a vision model looks at each scene (layout, burned-in subtitles)
-    vision_model: str = "qwen3.5:9b"
+    vision_model: str = "qwen3.5-agent-fast"   # Qwen 3.5 9B (with vision), shared with Agentora
+
+    # older saved settings: the same models under their shared names, through the broker
+    RENAMED = {"qwen3.6:27b": "qwen3.6-agent", "qwen3.5:9b": "qwen3.5-agent-fast",
+               "http://127.0.0.1:11434": "http://127.0.0.1:11435", "http://localhost:11434": "http://127.0.0.1:11435"}
 
     @classmethod
     def from_dict(cls, d):
         names = {f.name for f in dataclasses.fields(cls)}
-        return cls(**{k: v for k, v in (d or {}).items() if k in names})
+        fix = lambda k, v: cls.RENAMED.get(v, v) if k in ("model", "vision_model", "ollama") and isinstance(v, str) else v
+        return cls(**{k: fix(k, v) for k, v in (d or {}).items() if k in names})
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -263,28 +270,29 @@ def transcribe(video, work, model_name, language, force=False):
     t0 = time.time()
     # GPU only, never the CPU. The GPU is shared (Ollama, ComfyUI...), so retry with a smaller batch.
     words, tinfo = None, None
-    for batch in (16, 4):
-        model = pipe = None
-        try:
-            model = WhisperModel(model_name, device="cuda", compute_type="float16")
-            pipe = BatchedInferencePipeline(model=model)
-            log(f"[1/4] transcribing with Whisper {model_name} on the GPU...", 0.05)
-            segments, tinfo = pipe.transcribe(audio, batch_size=batch, word_timestamps=True, vad_filter=True,
-                                              language=language or None)
-            words = []
-            for seg in segments:
-                checkpoint()
-                words += [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)}
-                          for w in (seg.words or []) if w.word.strip()]
-            break
-        except Exception as e:  # noqa: BLE001
-            if batch == 4:
-                raise GpuError(f"Whisper can't run on the GPU ({str(e)[:100]}). Free some VRAM (check "
-                               "`nvidia-smi` and `ollama ps`) and try again. clipsmith never uses the CPU.")
-            log(f"[1/4] GPU attempt failed ({str(e)[:80]}); retrying with a smaller batch")
-        finally:
-            pipe = model = None
-            gc.collect()
+    with gpu_lease("whisper", 4000):                  # the card is shared: hold it while Whisper runs
+        for batch in (16, 4):
+            model = pipe = None
+            try:
+                model = WhisperModel(model_name, device="cuda", compute_type="float16")
+                pipe = BatchedInferencePipeline(model=model)
+                log(f"[1/4] transcribing with Whisper {model_name} on the GPU...", 0.05)
+                segments, tinfo = pipe.transcribe(audio, batch_size=batch, word_timestamps=True, vad_filter=True,
+                                                  language=language or None)
+                words = []
+                for seg in segments:
+                    checkpoint()
+                    words += [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)}
+                              for w in (seg.words or []) if w.word.strip()]
+                break
+            except Exception as e:  # noqa: BLE001
+                if batch == 4:
+                    raise GpuError(f"Whisper can't run on the GPU ({str(e)[:100]}). Free some VRAM (check "
+                                   "`nvidia-smi` and `ollama ps`) and try again. clipsmith never uses the CPU.")
+                log(f"[1/4] GPU attempt failed ({str(e)[:80]}); retrying with a smaller batch")
+            finally:
+                pipe = model = None
+                gc.collect()
     data = {"language": tinfo.language, "words": words}
     cache.write_text(json.dumps(data))
     log(f"[1/4] transcribed {len(words)} words in {time.time() - t0:.0f}s (language: {tinfo.language})", 0.25)
@@ -386,9 +394,64 @@ MAP_SCHEMA = {
 
 
 def _post(url, body, timeout):
-    req = urllib.request.Request(url, json.dumps(body).encode(), {"Content-Type": "application/json"})
+    req = urllib.request.Request(url, json.dumps(body).encode(), {"Content-Type": "application/json",
+                                                                   "X-Agentora-Client": BROKER_CLIENT})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
+
+
+# ---------------------------------------------------------------- sharing the GPU (Agentora's GPU broker)
+# The card is shared with Agentora (radio, Image & Video Studio, Hermes). Every step that loads something onto it holds
+# a lease from the broker, so the others make room first instead of being squeezed onto the CPU. Ollama calls go
+# through the broker's proxy (Settings.ollama), which leases for them. Without the broker everything still runs.
+BROKER = os.environ.get("GPU_BROKER", "http://127.0.0.1:7890")
+BROKER_CLIENT = "designer-studio"
+
+
+def _broker(method, path, body=None, timeout=10):
+    req = urllib.request.Request(BROKER + path, json.dumps(body).encode() if body is not None else None,
+                                 {"Content-Type": "application/json"}, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read() or b"{}")
+
+
+@contextlib.contextmanager
+def gpu_lease(what, mem_mb, wait_s=60):
+    """Hold the card for one step (Whisper, a ComfyUI job). A person is waiting, so the radio steps aside after its
+    current take; renewed while the step runs, released after."""
+    lid, stop = None, threading.Event()
+    try:
+        lid = _broker("POST", "/lease", {"client": f"{BROKER_CLIENT}-{what}", "kind": "interactive", "mem_mb": mem_mb,
+                                         "wait_s": wait_s, "ttl_s": 120}, wait_s + 20).get("id")
+    except Exception as e:  # noqa: BLE001
+        log(f"GPU broker not reachable ({e}); using the GPU anyway")
+
+    def keep():
+        while lid and not stop.wait(45):
+            try:
+                _broker("POST", f"/lease/{lid}/renew", {"ttl_s": 120}, 5)
+            except Exception:  # noqa: BLE001
+                pass
+    threading.Thread(target=keep, daemon=True).start()
+    try:
+        yield
+    finally:
+        stop.set()
+        if lid:
+            try:
+                _broker("DELETE", f"/lease/{lid}", timeout=5)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def card_in_use_by_others():
+    """Someone else (Agentora's Image & Video Studio, a radio cover) is using ComfyUI or the card right now."""
+    try:
+        st = _broker("GET", "/status", timeout=5)
+    except Exception:  # noqa: BLE001
+        return False
+    return any(l["granted"] and not l["client"].startswith(BROKER_CLIENT) and l["client"] in ("studio", "radio-art")
+               for l in st.get("leases", []))
 
 
 def ensure_model_on_gpu(url, model, num_ctx):

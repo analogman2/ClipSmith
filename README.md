@@ -44,11 +44,11 @@ Jobs run one at a time, because they share the GPU. The progress bar at the top 
 
 1. **Transcribes**: faster-whisper `large-v3-turbo` on the GPU, with word-level timestamps and
    language detection.
-2. **Picks moments**: Ollama (default `qwen3.6:27b`, checked to fit fully in VRAM) acts as a
+2. **Picks moments**: Ollama (default `qwen3.6-agent`, the Qwen 3.6 27B that Agentora's Hermes and radio also use, checked to fit fully in VRAM) acts as a
    short-form editor. It looks for a hook, a self-contained idea and a payoff. Each pick gets a score
    with a breakdown, a title, a caption, hashtags and keywords, written in the video's own language.
 3. **Reframes**: detects camera cuts and lays out each scene separately. A local vision model
-   (`qwen3.5:9b`) says what each scene shows (one person, two people, a screen share) and spots
+   (`qwen3.5-agent-fast`, Qwen 3.5 9B) says what each scene shows (one person, two people, a screen share) and spots
    burned-in subtitles, so ours stay off. YuNet face detection with mouth-motion speaker detection follows whoever is
    talking and hard-cuts when the speaker changes. Two people who are far apart get a **split
    screen**. Footage without faces gets a blurred-background **fit**. Outputs 9:16, 4:5 or 1:1.
@@ -87,3 +87,17 @@ Hugging Face cache).
 
 AI B-roll (needs a stock footage API such as Pexels), auto-posting to Instagram (needs a Meta
 Business account and Graph API token), and emoji in captions (libass can't draw color emoji).
+
+## Sharing the GPU with Agentora
+
+The card is shared with Agentora (radio, Image & Video Studio, Hermes), through Agentora's GPU broker (`127.0.0.1:7890`):
+
+- **Ollama calls** go through the broker's proxy (`http://127.0.0.1:11435`, the default `ollama` setting), sent as client `designer-studio`.
+  - The proxy takes a lease for each call and shares the model Hermes already has loaded, so there's one copy on the card.
+  - A smaller `num_ctx` doesn't reload it. "Unload" requests leave it loaded while someone else is using it.
+- **Whisper** (`designer-studio-whisper`, ~4 GB) and every **ComfyUI job** (`designer-studio-comfyui`: 12 GB for an image, 22 GB for a talking head) hold a lease while they run (`clipsmith.gpu_lease`).
+  - A person is waiting, so the radio steps aside after its current take.
+- **The dub voice** (`dub_worker.py`, `designer-studio-dub`) holds its own lease.
+- **`comfy.free()`** leaves ComfyUI's models alone while Agentora's Studio or a radio cover is using them.
+- **Old saved settings** naming `qwen3.6:27b`, `qwen3.5:9b` or Ollama on port 11434 are mapped to the shared names and the proxy.
+- **Without the broker** everything still runs, just without the coordination.

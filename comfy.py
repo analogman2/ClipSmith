@@ -52,10 +52,16 @@ def upload(path, kind="image"):
         return json.loads(resp.read())["name"]
 
 
-def run(prompt, label="ComfyUI", timeout=3600):
-    """Queue an API-format graph, wait for it (with pause/stop checkpoints) and return the output files."""
+def run(prompt, label="ComfyUI", timeout=3600, mem_mb=12000):
+    """Queue an API-format graph, wait for it (with pause/stop checkpoints) and return the output files. Holds a
+    GPU-broker lease while it runs, so the radio and the other apps make room first."""
     if not available():
         raise SystemExit(f"ComfyUI isn't running at {URL} (needed for AI images and talking heads).")
+    with cs.gpu_lease("comfyui", mem_mb, wait_s=120):
+        return _run(prompt, label, timeout)
+
+
+def _run(prompt, label, timeout):
     try:
         pid = _req("/prompt", {"prompt": prompt, "client_id": "designer-studio"})["prompt_id"]
     except urllib.error.HTTPError as e:
@@ -88,7 +94,16 @@ def run(prompt, label="ComfyUI", timeout=3600):
 
 
 def free():
-    """Unload ComfyUI's models so the GPU is free for Whisper/Ollama/the voice."""
+    """Unload ComfyUI's models so the GPU is free for Whisper/Ollama/the voice - unless someone else (Agentora's Image &
+    Video Studio, a radio cover) is using ComfyUI right now: then their models stay, and the broker makes room."""
+    if cs.card_in_use_by_others():
+        return
+    try:
+        q = _req("/queue", timeout=5)
+        if q.get("queue_running") or q.get("queue_pending"):
+            return
+    except Exception:  # noqa: BLE001
+        pass
     try:
         _req("/free", {"unload_models": True, "free_memory": True}, "POST")
     except Exception:  # noqa: BLE001
@@ -152,5 +167,5 @@ def talking_head(portrait, voice_wav, seconds, prompt, width=512, height=896, se
                                                             "loop_count": 0, "filename_prefix": prefix, "format": "video/h264-mp4",
                                                             "pix_fmt": "yuv420p", "crf": 16, "save_metadata": False,
                                                             "trim_to_audio": False, "pingpong": False, "save_output": True}}
-    files = run(g, "Talking head", timeout=3600)
+    files = run(g, "Talking head", timeout=3600, mem_mb=22000)
     return next(f for f in files if f.suffix.lower() in (".mp4", ".webm", ".mov"))

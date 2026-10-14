@@ -135,14 +135,15 @@ def retime_words(wav, lang, s):
     from faster_whisper import WhisperModel
     pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(wav), "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
                          capture_output=True, check=True).stdout
-    try:
-        model = WhisperModel(s.whisper, device="cuda", compute_type="float16")
-    except Exception as e:  # noqa: BLE001
-        raise cs.GpuError(f"Whisper can't load on the GPU ({str(e)[:100]}). clipsmith never uses the CPU.")
-    segs, _ = model.transcribe(np.frombuffer(pcm, np.float32), language=lang, word_timestamps=True, vad_filter=False)
-    words = [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)} for seg in segs for w in (seg.words or [])
-             if w.word.strip()]
-    del model
+    with cs.gpu_lease("whisper", 4000):                 # the card is shared: hold it while Whisper runs
+        try:
+            model = WhisperModel(s.whisper, device="cuda", compute_type="float16")
+        except Exception as e:  # noqa: BLE001
+            raise cs.GpuError(f"Whisper can't load on the GPU ({str(e)[:100]}). clipsmith never uses the CPU.")
+        segs, _ = model.transcribe(np.frombuffer(pcm, np.float32), language=lang, word_timestamps=True, vad_filter=False)
+        words = [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)} for seg in segs for w in (seg.words or [])
+                 if w.word.strip()]
+        del model
     return words
 
 
