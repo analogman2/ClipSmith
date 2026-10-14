@@ -174,7 +174,9 @@ Rules:
 - title: on-screen hook text for the first seconds, max 8 words, punchy, no hashtags, no emojis.
 - caption: Instagram caption, 1-2 short sentences that tease the clip, plus a light call to action.
 - hashtags: 5-8 relevant hashtags, without the # sign.
-- why: one sentence on why this moment works."""
+- why: one sentence on why this moment works.
+- Write title, caption and hashtags in the same language as the transcript ({language}), in the \
+speaker's own voice and vocabulary. Write "why" in English."""
 
 CLIP_SCHEMA = {
     "type": "object",
@@ -250,7 +252,7 @@ def pick_clips(sents, args):
         start = max(nxt, start + 1)
 
     per_window = max(3, math.ceil(args.count * 1.5 / len(windows)) + 1)
-    system = EDITOR_PROMPT.format(min_s=args.min, max_s=args.max, n=per_window)
+    system = EDITOR_PROMPT.format(min_s=args.min, max_s=args.max, n=per_window, language=args.spoken)
     cands = []
     for wi, (a, b) in enumerate(windows):
         lines = "\n".join(f"[{i}] ({fmt_ts(sents[i]['s'])}) {sents[i]['text']}" for i in range(a, b + 1))
@@ -374,7 +376,24 @@ def analyze_faces(video, info, cs, dur, sample_fps=6.0):
         samples.append((n / sample_fps, found))
         prev, n = gray, n + 1
     proc.wait()
-    return samples, aw
+    return samples, aw, ah
+
+
+def hook_margin(samples, ah, y_scale, y_off, lines):
+    """Where to put the hook title (ASS top margin) so it doesn't cover the face: above the head if
+    there's room, otherwise just under the chin, otherwise the default spot."""
+    faces = [max(fs, key=lambda f: f[3]) for _, fs in samples if fs]
+    default = 250
+    if len(faces) < 0.3 * max(1, len(samples)):
+        return default
+    top = np.median([cy - 0.75 * h for cx, cy, w, h, _ in faces]) * y_scale + y_off   # incl. hair
+    bottom = np.median([cy + 0.6 * h for cx, cy, w, h, _ in faces]) * y_scale + y_off
+    height = lines * 105 + 40
+    if top - 40 >= default + height:
+        return default
+    if bottom + 30 + height <= 1230:   # stay clear of the captions (top edge ~1250)
+        return int(bottom + 30)
+    return default
 
 
 def plan_camera(samples, aw, crop_w_a, sample_fps=6.0):
@@ -511,7 +530,7 @@ STYLES = {
 }
 
 
-def write_ass(path, words, tl, cs, title, style, hook_s):
+def write_ass(path, words, tl, cs, title, style, hook_s, hook_v=250):
     st = STYLES[style] if style != "none" else None
     head = f"""[Script Info]
 ScriptType: v4.00+
@@ -532,7 +551,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if title and hook_s > 0:
         txt = "\\N".join(ass_text(l) for l in wrap(title, 20))
         ev.append(f"Dialogue: 1,{ass_time(0)},{ass_time(hook_s)},Hook,,0,0,0,,"
-                  f"{{\\fad(150,250)\\fscx90\\fscy90\\t(0,180,\\fscx100\\fscy100)}}{txt}")
+                  f"{{\\an8\\pos({OUT_W // 2},{hook_v})\\fad(150,250)\\fscx90\\fscy90\\t(0,180,\\fscx100\\fscy100)}}{txt}")
     if st:
         ws = [{"w": w["w"], "s": tl(w["s"] - cs), "e": tl(w["e"] - cs)} for w in words]
         chunks, cur = [], []
@@ -586,11 +605,11 @@ def render(video, info, clip, words, out_path, work, args, encoder):
 
     # where to look
     layout, crop_w = args.layout, int(round(H * 9 / 16 / 2)) * 2
-    plan = None
+    plan, samples = None, None
     if W / H <= 9 / 16 + 0.01:
         layout = "full"                       # already vertical
     elif layout in ("auto", "track"):
-        samples, aw = analyze_faces(video, info, cs, dur)
+        samples, aw, ah = analyze_faces(video, info, cs, dur)
         plan = plan_camera(samples, aw, crop_w * aw / W)
         if plan is None:
             if layout == "track":
@@ -620,9 +639,17 @@ def render(video, info, clip, words, out_path, work, args, encoder):
                   f"pad={OUT_W}:{OUT_H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps:.4f}[v0]")
         how = "already vertical"
 
+    hook_lines = len(wrap(clip["title"], 20))
+    hook_v = 250
+    if layout == "full" and not args.no_hook:
+        samples, aw, ah = analyze_faces(video, info, cs, min(dur, 8.0))
+        sc = min(OUT_W / aw, OUT_H / ah)
+        hook_v = hook_margin(samples, ah, sc, (OUT_H - ah * sc) / 2, hook_lines)
+    elif layout == "track" and samples:
+        hook_v = hook_margin(samples, None, OUT_H / (640 * H / W), 0, hook_lines)
     ass = work / f"{tag}.ass"
     write_ass(ass, words[clip["i0"]:clip["i1"] + 1] if spoken else [], tl, cs, clip["title"] if not args.no_hook else "",
-              args.captions, args.hook_seconds)
+              args.captions, args.hook_seconds, hook_v)
 
     n = len(pieces)
     g = [vchain]
@@ -707,7 +734,13 @@ document.querySelectorAll('button[data-copy]').forEach(b=>b.onclick=async()=>{{
 
 # ---------------------------------------------------------------- main
 
+LANGS = {"en": "English", "pt": "Portuguese", "es": "Spanish", "fr": "French", "de": "German",
+         "it": "Italian", "nl": "Dutch", "ja": "Japanese", "ko": "Korean", "zh": "Chinese"}
+
+
 def slug(s):
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:40] or "clip"
 
 
@@ -753,6 +786,7 @@ def main():
     words = tr["words"]
     if not words and not args.clips:
         sys.exit("No speech found in this video (use --clips to cut it by hand).")
+    args.spoken = LANGS.get(tr["language"], tr["language"])
     sents = sentences_from_words(words)
     (work / "transcript.txt").write_text("\n".join(f"[{i}] ({fmt_ts(s['s'])}) {s['text']}"
                                                    for i, s in enumerate(sents)))
