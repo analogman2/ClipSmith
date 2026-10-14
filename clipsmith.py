@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --project /home/jt/claude/clipsmith python
-"""clipsmith: our own Opus Clip. Turns a long video (file or URL) into ready-to-post shorts.
+"""Designer Studio (engine + CLI): our own Opus Clip. Turns a long video (file or URL) into ready-to-post shorts.
 
 video -> Whisper (word timestamps) -> local LLM picks viral moments, scores them and writes titles,
 captions and hashtags -> reframe to 9:16 / 4:5 / 1:1 following whoever is talking (or split screen for
@@ -258,45 +258,78 @@ def sentences_from_words(words):
 # ---------------------------------------------------------------- picking moments (the LLM, GPU only)
 
 EDITOR_PROMPT = """You are a top short-form video editor who finds viral moments in long videos for \
-Instagram Reels. You get a timestamped transcript, one numbered line per sentence. Pick the best \
-self-contained moments to cut into vertical shorts.
+Instagram Reels, TikTok and YouTube Shorts. You get a timestamped transcript, one numbered line per \
+sentence. Pick the best self-contained moments to cut into vertical shorts.
 
 What makes a great short:
-- HOOK: the first line grabs attention within 3 seconds (a bold claim, a question, a surprising fact, \
+- HOOK: the first line grabs attention within 2 seconds (a bold claim, a question, a surprising fact, \
 conflict, a strong emotion, a punchline setup). It must make sense with no earlier context: never start \
 on "And", "So", "But", "That's why", or on a pronoun that refers to something said before.
 - PAYOFF: it ends on a complete thought: the answer, punchline, lesson or twist. Never stop mid-story.
 - One clear idea per clip. Story, insight, hot take, funny exchange, emotional peak, or useful tip.
-- Prefer moments people would rewatch, share or comment on.
-{focus}
+- Prefer moments people would rewatch, share, save or comment on.
+{context}{focus}
 Rules:
 - Each clip spans whole lines: start_line to end_line (inclusive), using the line numbers shown.
 - Each clip lasts between {min_s} and {max_s} seconds (use the timestamps). Clips must not overlap.
 - Return up to {n} clips, best first. Fewer is fine if the material is weak; never pad with filler.
-- Scores are honest 0-100 estimates: hook (first 3 seconds), flow (coherent, complete), value \
-(insight, emotion or entertainment), trend (fits what performs on Reels now), and score = overall viral \
-potential (90+ only for exceptional moments).
-- title: on-screen hook text for the first seconds, max 8 words, punchy, no hashtags, no emojis.
-- caption: Instagram caption, 1-2 short sentences that tease the clip, plus a light call to action.
-- hashtags: 5-8 relevant hashtags, without the # sign.
+- Scores are honest 0-100 estimates: hook (first 2 seconds), flow (coherent, complete), value \
+(insight, emotion or entertainment), trend (fits what performs on short-form now), and score = overall \
+viral potential (90+ only for exceptional moments).
+- hooks: 3 different on-screen hook texts for the first seconds (max 8 words each, punchy, no hashtags, \
+no emojis), each a different angle: curiosity gap, bold claim, direct question or "you" benefit. Best first.
+- instagram: caption (1-2 short sentences that tease the clip plus a light call to action, e.g. save or \
+comment) and 5-8 hashtags.
+- tiktok: caption (one short, casual line, may end with a question to drive comments) and 3-5 hashtags.
+- youtube: title (max 70 characters, searchable, curiosity-driven), description (1-2 sentences) and \
+3-6 tags.
+- Hashtags and tags without the # sign.
 - keywords: 3-6 single words, copied exactly as spoken in the clip, that carry the punch (numbers, \
 strong nouns, emotional words). They get highlighted in the captions.
+- topic: 1-3 words naming the clip's theme (for tracking which topics perform).
 - why: one sentence on why this moment works.
-- Write title, caption, hashtags in the same language as the transcript ({language}), in the speaker's \
-own voice and vocabulary. Write "why" in English."""
+- Write hooks, captions, titles, descriptions, hashtags and topic in the same language as the \
+transcript ({language}), in the speaker's own voice and vocabulary. Write "why" in English."""
 
+_STR = {"type": "string"}
+_TAGS = {"type": "array", "items": _STR}
 CLIP_SCHEMA = {
     "type": "object",
     "properties": {"clips": {"type": "array", "items": {
         "type": "object",
-        "properties": {"start_line": {"type": "integer"}, "end_line": {"type": "integer"},
-                       "hook": {"type": "integer"}, "flow": {"type": "integer"}, "value": {"type": "integer"},
-                       "trend": {"type": "integer"}, "score": {"type": "integer"}, "title": {"type": "string"},
-                       "caption": {"type": "string"}, "hashtags": {"type": "array", "items": {"type": "string"}},
-                       "keywords": {"type": "array", "items": {"type": "string"}}, "why": {"type": "string"}},
-        "required": ["start_line", "end_line", "hook", "flow", "value", "trend", "score", "title", "caption",
-                     "hashtags", "keywords", "why"]}}},
+        "properties": {
+            "start_line": {"type": "integer"}, "end_line": {"type": "integer"},
+            "hook": {"type": "integer"}, "flow": {"type": "integer"}, "value": {"type": "integer"},
+            "trend": {"type": "integer"}, "score": {"type": "integer"}, "hooks": _TAGS,
+            "instagram": {"type": "object", "properties": {"caption": _STR, "hashtags": _TAGS}, "required": ["caption", "hashtags"]},
+            "tiktok": {"type": "object", "properties": {"caption": _STR, "hashtags": _TAGS}, "required": ["caption", "hashtags"]},
+            "youtube": {"type": "object", "properties": {"title": _STR, "description": _STR, "tags": _TAGS},
+                        "required": ["title", "description", "tags"]},
+            "keywords": _TAGS, "topic": _STR, "why": _STR},
+        "required": ["start_line", "end_line", "hook", "flow", "value", "trend", "score", "hooks", "instagram",
+                     "tiktok", "youtube", "keywords", "topic", "why"]}}},
     "required": ["clips"],
+}
+
+MAP_PROMPT = """You analyze the structure of a long video from its timestamped transcript (one numbered \
+line per sentence) for a short-form editor. Split it into consecutive chapters covering the whole \
+transcript in order (roughly 30 seconds to 3 minutes each, following the topic changes). For each chapter:
+- title: 2-6 words; summary: one sentence (both in {language}).
+- engagement: honest 0-100 estimate of how gripping it is for short-form viewers (hooks, emotion, \
+surprise, stakes, humor, useful insight; low for setup, rambling, logistics).
+- emotion: one word in English (e.g. inspiring, funny, tense, vulnerable, informative, surprising, flat).
+- peak_line: the single most clip-worthy line in the chapter, and peak_reason: a short English phrase why."""
+
+MAP_SCHEMA = {
+    "type": "object",
+    "properties": {"chapters": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"start_line": {"type": "integer"}, "end_line": {"type": "integer"}, "title": _STR,
+                       "summary": _STR, "engagement": {"type": "integer"}, "emotion": _STR,
+                       "peak_line": {"type": "integer"}, "peak_reason": _STR},
+        "required": ["start_line", "end_line", "title", "summary", "engagement", "emotion", "peak_line",
+                     "peak_reason"]}}},
+    "required": ["chapters"],
 }
 
 
@@ -307,7 +340,7 @@ def _post(url, body, timeout):
 
 
 def ensure_model_on_gpu(url, model, num_ctx):
-    """Load the picker model and make sure Ollama put all of it in VRAM (not partly on the CPU)."""
+    """Load the model and make sure Ollama put all of it in VRAM (not partly on the CPU)."""
     try:
         _post(url + "/api/generate", {"model": model, "prompt": "", "keep_alive": "5m",
                                       "options": {"num_ctx": num_ctx}}, 600)
@@ -323,10 +356,12 @@ def ensure_model_on_gpu(url, model, num_ctx):
                        "clipsmith never runs models on the CPU.")
 
 
-def ollama_chat(url, model, system, user, think, num_ctx):
-    body = {"model": model, "stream": False, "format": CLIP_SCHEMA, "think": think, "keep_alive": "5m",
-            "options": {"temperature": 0.4, "num_ctx": num_ctx},
+def ollama_chat(url, model, system, user, think, num_ctx, schema=CLIP_SCHEMA, temperature=0.4):
+    body = {"model": model, "stream": False, "format": schema, "think": think, "keep_alive": "5m",
+            "options": {"temperature": temperature, "num_ctx": num_ctx},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+    if schema is None:
+        body.pop("format")
     for attempt in range(2):
         try:
             return _post(url + "/api/chat", body, 1800)["message"]["content"]
@@ -361,9 +396,7 @@ def fit_length(c, sents, min_s, max_s):
     return {**c, "a": a, "b": b}
 
 
-def pick_clips(sents, s: Settings, language):
-    """Ask the LLM for candidate moments, window by window for long videos; then rank and de-overlap."""
-    window_s, overlap_s = 15 * 60, 90
+def transcript_windows(sents, window_s=15 * 60, overlap_s=90):
     windows, start = [], 0
     while start < len(sents):
         end = start
@@ -376,24 +409,70 @@ def pick_clips(sents, s: Settings, language):
         while nxt > start and sents[end]["e"] - sents[nxt]["s"] < overlap_s:
             nxt -= 1
         start = max(nxt, start + 1)
+    return windows
 
-    url = s.ollama.rstrip("/")
-    # context sized to the longest window (about 3 chars per token, plus prompt and answer), so the model
-    # and its cache fit in VRAM
+
+def context_size(sents, windows, answer_tokens=6000):
+    """Context sized to the longest window (about 3 chars per token, plus prompt and answer), so the model
+    and its cache fit in VRAM."""
     longest = max(sum(len(sents[i]["text"]) + 12 for i in range(a, b + 1)) for a, b in windows)
-    num_ctx = min(32768, max(8192, math.ceil((longest / 3 + 4000) / 2048) * 2048))
+    return min(32768, max(8192, math.ceil((longest / 3 + answer_tokens) / 2048) * 2048))
+
+
+def numbered(sents, a, b):
+    return "\n".join(f"[{i}] ({fmt_ts(sents[i]['s'])}) {sents[i]['text']}" for i in range(a, b + 1))
+
+
+def video_map(sents, s: Settings, language):
+    """Engagement map of the whole video: chapters with a summary, engagement score, emotion and peak."""
+    windows = transcript_windows(sents, window_s=20 * 60, overlap_s=0)
+    url = s.ollama.rstrip("/")
+    num_ctx = context_size(sents, windows, 4000)
     ensure_model_on_gpu(url, s.model, num_ctx)
+    chapters = []
+    for wi, (a, b) in enumerate(windows):
+        log(f"[2/4] mapping the video's structure ({wi + 1}/{len(windows)})...", 0.26)
+        raw = ollama_chat(url, s.model, MAP_PROMPT.format(language=language), f"Transcript:\n{numbered(sents, a, b)}",
+                          False, num_ctx, MAP_SCHEMA, 0.2)
+        try:
+            got = json.loads(raw).get("chapters", [])
+        except json.JSONDecodeError:
+            got = []
+        for c in got:
+            lo, hi = sorted((int(c["start_line"]), int(c["end_line"])))
+            lo, hi = max(a, lo), min(b, hi)
+            if lo > hi:
+                continue
+            pk = int(c["peak_line"]) if lo <= int(c["peak_line"]) <= hi else lo
+            chapters.append({"a": lo, "b": hi, "start": sents[lo]["s"], "end": sents[hi]["e"],
+                             "title": c["title"].strip(), "summary": c["summary"].strip(),
+                             "engagement": max(0, min(100, int(c["engagement"]))), "emotion": c["emotion"].strip().lower(),
+                             "peak": {"line": pk, "start": sents[pk]["s"], "end": sents[pk]["e"],
+                                      "text": sents[pk]["text"], "reason": c["peak_reason"].strip()}})
+    chapters.sort(key=lambda c: c["a"])
+    log(f"[2/4] video map: {len(chapters)} chapters", 0.3)
+    return chapters
+
+
+def pick_clips(sents, s: Settings, language, context=""):
+    """Ask the LLM for candidate moments, window by window for long videos; then rank and de-overlap."""
+    windows = transcript_windows(sents)
+    url = s.ollama.rstrip("/")
+    num_ctx = context_size(sents, windows) + (2048 if context else 0)
+    ensure_model_on_gpu(url, s.model, min(32768, num_ctx))
     per_window = max(3, math.ceil(s.count * 1.5 / len(windows)) + 1)
     focus = (f"\nThe creator wants clips about: {s.prompt}\nOnly pick moments that match this; return fewer "
              "clips rather than off-topic ones.\n") if s.prompt else ""
-    system = EDITOR_PROMPT.format(min_s=s.min, max_s=s.max, n=per_window, language=language, focus=focus)
+    system = EDITOR_PROMPT.format(min_s=s.min, max_s=s.max, n=per_window, language=language, focus=focus,
+                                  context=context)
     cands = []
+    clamp = lambda v: max(0, min(100, int(v)))
+    tags = lambda xs: [h.strip().lstrip("#").replace(" ", "") for h in xs if h.strip()]
     for wi, (a, b) in enumerate(windows):
-        lines = "\n".join(f"[{i}] ({fmt_ts(sents[i]['s'])}) {sents[i]['text']}" for i in range(a, b + 1))
         t0 = time.time()
         log(f"[2/4] {s.model} reading transcript part {wi + 1}/{len(windows)} "
-            f"({fmt_ts(sents[a]['s'])}-{fmt_ts(sents[b]['e'])})...", 0.25 + 0.15 * wi / len(windows))
-        raw = ollama_chat(url, s.model, system, f"Transcript:\n{lines}", s.think, num_ctx)
+            f"({fmt_ts(sents[a]['s'])}-{fmt_ts(sents[b]['e'])})...", 0.3 + 0.12 * wi / len(windows))
+        raw = ollama_chat(url, s.model, system, f"Transcript:\n{numbered(sents, a, b)}", s.think, min(32768, num_ctx))
         try:
             got = json.loads(raw).get("clips", [])
         except json.JSONDecodeError:
@@ -404,16 +483,20 @@ def pick_clips(sents, s: Settings, language):
             lo, hi = sorted((int(c["start_line"]), int(c["end_line"])))
             if not (a <= lo <= b and a <= hi <= b):
                 continue
-            clamp = lambda v: max(0, min(100, int(v)))
+            hooks = [h.strip().strip('"') for h in c["hooks"] if h.strip()][:3] or ["(no hook)"]
+            ig, tt, yt = c["instagram"], c["tiktok"], c["youtube"]
+            platforms = {"instagram": {"caption": ig["caption"].strip(), "hashtags": tags(ig["hashtags"])},
+                         "tiktok": {"caption": tt["caption"].strip(), "hashtags": tags(tt["hashtags"])},
+                         "youtube": {"title": yt["title"].strip(), "description": yt["description"].strip(),
+                                     "tags": tags(yt["tags"])}}
             c = fit_length({"a": lo, "b": hi, "score": clamp(c["score"]),
                             "scores": {k: clamp(c[k]) for k in ("hook", "flow", "value", "trend")},
-                            "title": c["title"].strip().strip('"'), "caption": c["caption"].strip(),
-                            "hashtags": [h.strip().lstrip("#").replace(" ", "") for h in c["hashtags"] if h.strip()],
+                            "title": hooks[0], "hooks": hooks, "platforms": platforms,
+                            "caption": platforms["instagram"]["caption"], "hashtags": platforms["instagram"]["hashtags"],
                             "keywords": [k.strip() for k in c["keywords"] if k.strip()][:6],
-                            "why": c["why"].strip()}, sents, s.min, s.max)
+                            "topic": c["topic"].strip(), "why": c["why"].strip()}, sents, s.min, s.max)
             if c:
                 cands.append(c)
-    ollama_unload(url, s.model)   # hand the GPU back
 
     chosen = []
     for c in sorted(cands, key=lambda c: -c["score"]):
@@ -423,6 +506,197 @@ def pick_clips(sents, s: Settings, language):
         if len(chosen) >= s.count:
             break
     return chosen
+
+
+# ---------------------------------------------------------------- remember & learn: creator profile + past results
+
+PROFILE_FILE = HERE / "profile.json"
+PROFILE_FIELDS = {"niche": "", "audience": "", "tone": "", "themes": "", "avoid": "", "goals": ""}
+
+
+def load_profile():
+    try:
+        return {**PROFILE_FIELDS, **json.loads(PROFILE_FILE.read_text())}
+    except (OSError, json.JSONDecodeError):
+        return dict(PROFILE_FIELDS)
+
+
+def save_profile(d):
+    PROFILE_FILE.write_text(json.dumps({k: str(d.get(k, "")).strip() for k in PROFILE_FIELDS}, indent=1, ensure_ascii=False))
+
+
+def engagement_rate(m):
+    v = float(m.get("views") or 0)
+    inter = sum(float(m.get(k) or 0) for k in ("likes", "comments", "shares", "saves"))
+    return inter / v if v > 0 else 0.0
+
+
+def posted_clips(root):
+    """Every clip (in every project under root) that has performance numbers entered."""
+    out = []
+    for f in Path(root).glob("*/project.json"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        for c in d.get("clips", []):
+            for m in c.get("metrics", []):
+                if m.get("views"):
+                    out.append({"project": f.parent.name, "video": Path(d.get("video", "")).name, "clip": c, "m": m,
+                                "rate": engagement_rate(m), "length": c.get("length") or (c["end"] - c["start"]),
+                                "style": {**d.get("settings", {}), **c.get("overrides", {})}})
+    return out
+
+
+def learning_context(root):
+    """Creator profile + what has worked before, for the picker prompt."""
+    prof = load_profile()
+    lines = []
+    if any(prof.values()):
+        lines.append("Creator profile (pick and write for this):")
+        for k, label in (("niche", "Niche"), ("audience", "Audience"), ("tone", "Tone"), ("themes", "Themes"),
+                         ("goals", "Goals"), ("avoid", "Avoid")):
+            if prof[k]:
+                lines.append(f"- {label}: {prof[k]}")
+    posted = posted_clips(root)
+    if len(posted) >= 3:
+        posted.sort(key=lambda x: -float(x["m"]["views"]))
+        fmt = lambda x: (f"- \"{x['clip'].get('title', '')}\" (topic: {x['clip'].get('topic', '?')}, "
+                         f"{x['length']:.0f}s, {x['m'].get('platform', '?')}): {int(float(x['m']['views'])):,} views, "
+                         f"{x['rate'] * 100:.1f}% engagement")
+        best, worst = posted[:5], posted[max(5, len(posted) - 3):]   # never the same clip in both
+        lines.append("Past clips that performed best (learn from their hooks and topics):")
+        lines += [fmt(x) for x in best]
+        if worst:
+            lines.append("Past clips that performed worst (avoid what they did):")
+            lines += [fmt(x) for x in worst]
+    return ("\n" + "\n".join(lines) + "\n") if lines else ""
+
+
+INSIGHT_PROMPT = """You are a short-form growth analyst. Below is a creator's posted clips with their \
+stats, followed by breakdowns by topic, length, caption style, platform and posting hour. In plain, \
+specific English, give: (1) what is working, (2) what is not, (3) five concrete recommendations for the \
+next videos (hooks, topics, length, format, timing). Keep it under 250 words. Use short bullet points. \
+Base everything on the numbers; say when the data is too thin to tell."""
+
+
+def insights(root, s: Settings = None):
+    """Breakdowns of performance (and optionally an AI summary)."""
+    posted = posted_clips(root)
+
+    def group(keyf):
+        g = {}
+        for x in posted:
+            k = keyf(x)
+            if k is None:
+                continue
+            g.setdefault(k, []).append(x)
+        rows = [{"key": k, "clips": len(v), "median_views": float(np.median([float(x["m"]["views"]) for x in v])),
+                 "avg_rate": float(np.mean([x["rate"] for x in v]))} for k, v in g.items()]
+        return sorted(rows, key=lambda r: -r["median_views"])
+
+    def hour(x):
+        at = x["m"].get("posted_at") or ""
+        m = re.search(r"T?(\d{1,2}):\d{2}", at)
+        return f"{int(m.group(1)):02d}:00" if m else None
+
+    bucket = lambda x: "<20s" if x["length"] < 20 else "20-35s" if x["length"] < 35 else "35-50s" if x["length"] < 50 else "50s+"
+    data = {"count": len(posted),
+            "total_views": sum(float(x["m"]["views"]) for x in posted),
+            "by_topic": group(lambda x: (x["clip"].get("topic") or "?").lower()),
+            "by_length": group(bucket),
+            "by_captions": group(lambda x: x["style"].get("captions", "bold")),
+            "by_platform": group(lambda x: x["m"].get("platform") or "?"),
+            "by_hour": group(hour),
+            "top": [{"title": x["clip"].get("title"), "project": x["project"], "platform": x["m"].get("platform"),
+                     "views": float(x["m"]["views"]), "rate": x["rate"], "topic": x["clip"].get("topic"),
+                     "length": x["length"]} for x in sorted(posted, key=lambda x: -float(x["m"]["views"]))[:20]]}
+    if s is not None:
+        if len(posted) < 3:
+            data["ai"] = "Enter stats for at least 3 posted clips to get AI insights."
+        else:
+            table = "\n".join(f"- {t['title']} | topic {t['topic']} | {t['length']:.0f}s | {t['platform']} | "
+                              f"{int(t['views']):,} views | {t['rate'] * 100:.1f}% engagement" for t in data["top"])
+            br = "\n".join(f"{name}: " + "; ".join(f"{r['key']} = {r['clips']} clips, median {int(r['median_views']):,} views, "
+                                                  f"{r['avg_rate'] * 100:.1f}% eng" for r in data[k])
+                           for name, k in (("Topic", "by_topic"), ("Length", "by_length"), ("Captions", "by_captions"),
+                                           ("Platform", "by_platform"), ("Posting hour", "by_hour")))
+            url = s.ollama.rstrip("/")
+            ensure_model_on_gpu(url, s.model, 8192)
+            data["ai"] = ollama_chat(url, s.model, INSIGHT_PROMPT, f"Clips:\n{table}\n\nBreakdowns:\n{br}", False, 8192,
+                                     None, 0.3).strip()
+            ollama_unload(url, s.model)
+    return data
+
+
+# ---------------------------------------------------------------- clip sheet + posting schedule
+
+DEFAULT_SLOTS = {"instagram": ["11:00", "19:00"], "tiktok": ["12:00", "20:00"], "youtube": ["15:00"]}
+
+
+def best_slots(root, platform):
+    """Posting times: learned from your own stats when there is enough data, else common good defaults."""
+    plat = [x for x in posted_clips(root) if (x["m"].get("platform") or "") == platform]
+    if len(plat) >= 6:
+        hours = {}
+        for x in plat:
+            m = re.search(r"T?(\d{1,2}):\d{2}", x["m"].get("posted_at") or "")
+            if m:
+                hours.setdefault(int(m.group(1)), []).append(float(x["m"]["views"]))
+        good = sorted(((float(np.median(v)), h) for h, v in hours.items() if len(v) >= 2), reverse=True)
+        if len(good) >= 2:
+            return [f"{h:02d}:00" for _, h in good[:2]], "learned from your stats"
+    return DEFAULT_SLOTS.get(platform, ["12:00"]), "typical best times"
+
+
+def schedule(p, start_date=None, per_day=1, platforms=("instagram",), root=None):
+    """Spread the clips (best first) over the coming days, one slot per platform per post."""
+    import datetime as dt
+    d0 = dt.date.fromisoformat(start_date) if start_date else dt.date.today() + dt.timedelta(days=1)
+    clips = sorted(p.clips, key=lambda c: -c.get("score", 0))
+    slots = {pl: best_slots(root or p.dir.parent, pl) for pl in platforms}
+    plan = []
+    for k, c in enumerate(clips):
+        day = d0 + dt.timedelta(days=k // max(1, per_day))
+        for pl in platforms:
+            times, why = slots[pl]
+            plan.append({"clip": c["id"], "platform": pl, "date": day.isoformat(),
+                         "time": times[(k % per_day) % len(times)], "why": why})
+    return plan
+
+
+def clip_sheet(p, plan=None):
+    """Rows for the clip sheet (one per clip and platform when a schedule is given)."""
+    rows = []
+    sched = {}
+    for e in plan or []:
+        sched.setdefault(e["clip"], []).append(e)
+    for rank, c in enumerate(sorted(p.clips, key=lambda c: -c.get("score", 0)), 1):
+        pf = c.get("platforms") or {"instagram": {"caption": c.get("caption", ""), "hashtags": c.get("hashtags", [])}}
+        for e in sched.get(c["id"], [{"platform": None}]):
+            pl = e["platform"]
+            info = pf.get(pl or "instagram", {})
+            caption = info.get("caption") or info.get("description") or c.get("caption", "")
+            tags = info.get("hashtags") or info.get("tags") or c.get("hashtags", [])
+            rows.append({"rank": rank, "file": c.get("file", ""), "source_start": fmt_ts(c["start"]),
+                         "source_end": fmt_ts(c["end"]), "length_s": round(c.get("length") or c["end"] - c["start"]),
+                         "score": c.get("score", 0), **{k: c.get("scores", {}).get(k, "") for k in ("hook", "flow", "value", "trend")},
+                         "topic": c.get("topic", ""), "hook_text": c.get("title", ""),
+                         "alt_hooks": " | ".join(h for h in c.get("hooks", []) if h != c.get("title")),
+                         "platform": pl or "", "post_date": e.get("date", ""), "post_time": e.get("time", ""),
+                         "title": info.get("title", "") if pl == "youtube" else "",
+                         "caption": caption, "hashtags": " ".join("#" + h for h in tags), "why": c.get("why", "")})
+    return rows
+
+
+def write_sheet_csv(path, rows):
+    import csv
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:   # BOM so Excel reads accents right
+        if not rows:
+            return
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
 
 
 # ---------------------------------------------------------------- clip timing, fillers and dead air
@@ -1138,17 +1412,29 @@ def create_project(source, out_root, s: Settings, manual=None, reselect=False, r
                           "title": " ".join(text.split()[:7]) or f"Clip {k + 1}", "caption": text[:150],
                           "hashtags": [], "keywords": [], "why": "picked by hand"})
     else:
-        sel_key = hashlib.sha1(json.dumps([s.model, s.count, s.min, s.max, s.think, s.prompt, len(words), 2]).encode()).hexdigest()[:10]
+        url = s.ollama.rstrip("/")
+        map_cache = p.work / f"map-{hashlib.sha1(json.dumps([s.model, len(words), 1]).encode()).hexdigest()[:10]}.json"
+        if map_cache.exists() and not reselect:
+            chapters = json.loads(map_cache.read_text())
+        else:
+            chapters = video_map(sents, s, LANGS.get(language, language))
+            map_cache.write_text(json.dumps(chapters, ensure_ascii=False))
+        p.data["map"] = chapters
+        context = learning_context(out_root)
+        sel_key = hashlib.sha1(json.dumps([s.model, s.count, s.min, s.max, s.think, s.prompt, len(words), context,
+                                           3]).encode()).hexdigest()[:10]
         sel_cache = p.work / f"picks-{sel_key}.json"
         if sel_cache.exists() and not reselect:
             picks = json.loads(sel_cache.read_text())
             log(f"[2/4] using the AI's previous picks ({sel_cache.name}; --reselect to ask again)", 0.4)
         else:
-            chosen = pick_clips(sents, s, LANGS.get(language, language))
+            chosen = pick_clips(sents, s, LANGS.get(language, language), context)
             picks = [{"i0": sents[c["a"]]["i0"], "i1": sents[c["b"]]["i1"],
-                      **{k: c[k] for k in ("score", "scores", "title", "caption", "hashtags", "keywords", "why")}}
+                      **{k: c[k] for k in ("score", "scores", "title", "hooks", "platforms", "caption", "hashtags",
+                                           "keywords", "topic", "why")}}
                      for c in chosen]
             sel_cache.write_text(json.dumps(picks, indent=1, ensure_ascii=False))
+        ollama_unload(url, s.model)   # hand the GPU back
     if not picks:
         raise SystemExit("No good moments found. Try a lower --min, a higher --max, another --prompt, or --clips.")
     for k, c in enumerate(picks, 1):
@@ -1159,7 +1445,8 @@ def create_project(source, out_root, s: Settings, manual=None, reselect=False, r
     clips = []
     for c in picks:
         prev = old.get((c["i0"], c["i1"]))
-        clips.append({**c, **{k: prev[k] for k in ("file", "overrides", "layout", "length", "cut_s") if k in prev}}
+        clips.append({**c, **{k: prev[k] for k in ("file", "overrides", "layout", "length", "cut_s", "metrics",
+                                                    "rendered") if k in prev}}
                      if prev else c)
     kept_files = {c.get("file") for c in clips}
     for c in p.clips:                                          # renders of picks that are gone
@@ -1190,6 +1477,7 @@ def render_all(p: Project, only=None):
         done += 1
         p.save()
     write_gallery(p)
+    write_sheet_csv(p.dir / "clip_sheet.csv", clip_sheet(p))
     return p
 
 
@@ -1351,6 +1639,9 @@ def main():
     p.add_argument("--stitch", choices=["source", "score"],
                    help="also join the clips into one video, in source order or best-first")
     p.add_argument("--transition", choices=["cut", "fade"], default="cut", help="between stitched clips")
+    p.add_argument("--schedule", metavar="YYYY-MM-DD", help="write clip_sheet.csv with a posting plan from this date")
+    p.add_argument("--platforms", default="instagram", help="for --schedule: e.g. instagram,tiktok,youtube")
+    p.add_argument("--per-day", type=int, default=1, help="for --schedule: posts per day")
     p.add_argument("--reselect", action="store_true", help="ask the AI again instead of reusing its last picks")
     p.add_argument("--retranscribe", action="store_true")
     args = p.parse_args()
@@ -1368,6 +1659,10 @@ def main():
     render_all(proj)
     if args.stitch:
         stitch(proj, order=args.stitch, transition=args.transition)
+    if args.schedule:
+        plan = schedule(proj, args.schedule, args.per_day, [x.strip() for x in args.platforms.split(",")], args.out)
+        write_sheet_csv(proj.dir / "clip_sheet.csv", clip_sheet(proj, plan))
+        log(f"clip sheet with posting plan: {proj.dir / 'clip_sheet.csv'}")
     ok = sum(1 for c in proj.clips if c.get("file"))
     log(f"[4/4] done in {time.time() - t0:.0f}s: {ok} shorts in {proj.dir}/ (open {proj.dir / 'index.html'})", 1.0)
 

@@ -1,8 +1,8 @@
-# clipsmith
+# Designer Studio
 
-Our own Opus Clip. Give it a long video (a file or a link) and get ready-to-post shorts for
+Our own Opus Clip (the engine and CLI are `clipsmith.py`). Give it a long video (a file or a link) and get ready-to-post shorts for
 Instagram Reels, with a web app to review, edit and re-render them. Everything runs locally and
-**GPU only**: if Whisper or the picker model doesn't fit in VRAM, clipsmith stops and tells you what
+**GPU only**: if Whisper or the picker model doesn't fit in VRAM, Designer Studio stops and tells you what
 to free. It never falls back to the CPU.
 
 ## Web app

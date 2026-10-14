@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --project /home/jt/claude/clipsmith python
-"""clipsmith web app: pick or upload a video (or paste a URL), watch it work, then review, edit and
+"""Designer Studio web app: pick or upload a video (or paste a URL), watch it work, then review, edit and
 re-render the shorts. Local only (127.0.0.1). One GPU job at a time, in a queue.
 
     ./serve.sh            # http://127.0.0.1:8765
@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 import clipsmith as cs
 
@@ -25,7 +25,7 @@ LIBRARY = [Path(p).expanduser() for p in os.environ.get("CLIPSMITH_LIBRARY", "~/
           [UPLOADS, HERE / "downloads"]
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
 
-app = FastAPI(title="clipsmith")
+app = FastAPI(title="Designer Studio")
 JOBS = {}            # id -> job dict
 Q = queue.Queue()
 
@@ -34,7 +34,7 @@ Q = queue.Queue()
 
 def new_job(kind, project, fn, label):
     j = {"id": uuid.uuid4().hex[:8], "kind": kind, "project": project, "label": label, "status": "queued",
-         "progress": 0.0, "log": [], "error": None, "created": time.time(), "fn": fn}
+         "progress": 0.0, "log": [], "error": None, "result": None, "created": time.time(), "fn": fn}
     JOBS[j["id"]] = j
     Q.put(j)
     return public(j)
@@ -59,7 +59,7 @@ def worker():
                 j["progress"] = progress
         cs._hooks.append(hook)
         try:
-            j["fn"](j)
+            j["result"] = j["fn"](j)
             j["status"], j["progress"] = "done", 1.0
         except SystemExit as e:          # clipsmith's friendly errors (GPU full, no speech, ...)
             j["status"], j["error"] = "error", str(e)
@@ -147,17 +147,20 @@ async def upload(file: UploadFile):
 @app.post("/api/projects")
 async def create(req: Request):
     body = await req.json()
-    source = (body.get("source") or "").strip()
-    if not source:
+    sources = [x.strip() for x in (body.get("sources") or [body.get("source") or ""]) if x and x.strip()]
+    if not sources:
         raise HTTPException(400, "pick a video or paste a URL")
     s = cs.Settings.from_dict({**meta()["defaults"], **(body.get("settings") or {})})
-
-    def run(j):
-        p = cs.create_project(source, CLIPS, s, reselect=bool(body.get("reselect")))
-        j["project"] = p.dir.name
-        cs.render_all(p)
-    label = Path(source).name if "://" not in source else source
-    return new_job("create", cs.slug(Path(source).stem) if "://" not in source else None, run, f"New clips: {label}")
+    jobs = []
+    for source in sources:
+        def run(j, source=source):
+            p = cs.create_project(source, CLIPS, s, reselect=bool(body.get("reselect")))
+            j["project"] = p.dir.name
+            cs.render_all(p)
+        label = Path(source).name if "://" not in source else source
+        jobs.append(new_job("create", cs.slug(Path(source).stem) if "://" not in source else None, run,
+                            f"New clips: {label}"))
+    return jobs[0] if len(jobs) == 1 else {"jobs": jobs}
 
 
 @app.get("/api/projects/{slug}")
@@ -186,9 +189,12 @@ async def edit_clip(slug: str, cid: int, req: Request):
         c = p.clip(cid)
     except StopIteration:
         raise HTTPException(404, "no such clip")
-    for k in ("title", "caption", "hashtags", "keywords"):
+    for k in ("title", "caption", "hashtags", "keywords", "platforms", "topic", "metrics"):
         if k in body:
             c[k] = body[k]
+    if "platforms" in body:     # the Instagram caption is the clip's main caption
+        ig = body["platforms"].get("instagram", {})
+        c["caption"], c["hashtags"] = ig.get("caption", c.get("caption", "")), ig.get("hashtags", c.get("hashtags", []))
     if "start" in body or "end" in body:
         try:
             p.set_range(c, body.get("start", c["start"]), body.get("end", c["end"]))
@@ -292,6 +298,42 @@ def delete_compilation(slug: str, n: int):
     return {"ok": True}
 
 
+@app.get("/api/projects/{slug}/sheet")
+def sheet(slug: str, start: str = "", per_day: int = 1, platforms: str = "", fmt: str = "json"):
+    """Clip sheet, optionally with a posting schedule (start=YYYY-MM-DD, platforms=instagram,tiktok,youtube)."""
+    p = project(slug)
+    plats = [x for x in platforms.split(",") if x in ("instagram", "tiktok", "youtube")]
+    plan = cs.schedule(p, start or None, per_day, plats, CLIPS) if plats else None
+    rows = cs.clip_sheet(p, plan)
+    if fmt == "csv":
+        out = p.dir / "clip_sheet.csv"
+        cs.write_sheet_csv(out, rows)
+        return FileResponse(out, media_type="text/csv", filename=f"{slug}_clip_sheet.csv")
+    return rows
+
+
+@app.get("/api/profile")
+def get_profile():
+    return cs.load_profile()
+
+
+@app.put("/api/profile")
+async def put_profile(req: Request):
+    cs.save_profile(await req.json())
+    return cs.load_profile()
+
+
+@app.get("/api/insights")
+def get_insights():
+    return cs.insights(CLIPS)
+
+
+@app.post("/api/insights/ai")
+def ai_insights():
+    s = cs.Settings.from_dict(meta()["defaults"])
+    return new_job("insights", None, lambda j: cs.insights(CLIPS, s)["ai"], "AI insights")
+
+
 @app.delete("/api/projects/{slug}")
 def delete_project(slug: str):
     p = editable(slug)
@@ -311,5 +353,5 @@ def files(slug: str, name: str):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("CLIPSMITH_PORT", "8765"))
-    print(f"clipsmith: http://127.0.0.1:{port}")
+    print(f"Designer Studio: http://127.0.0.1:{port}")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

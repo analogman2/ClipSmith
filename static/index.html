@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>clipsmith</title>
+<title>Designer Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 260'%3E%3Crect width='200' height='260' rx='40' fill='black'/%3E%3Cmask id='b'%3E%3Crect width='200' height='260' fill='white'/%3E%3Ccircle cx='159' cy='116' r='19'/%3E%3Ccircle cx='155' cy='142' r='22'/%3E%3Ccircle cx='161' cy='168' r='18'/%3E%3C/mask%3E%3Cpath mask='url(%23b)' fill='white' d='M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z'/%3E%3Cpath d='M101 46C100 32 104 21 113 12' stroke='white' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#0d0e11;--panel:#15171c;--card:#1b1e24;--line:#2a2e37;--fg:#eceef2;--mut:#9399a5;--acc:#ffe500;--acc2:#39ff14;--bad:#ff5d5d;--r:12px}
 *{box-sizing:border-box}
@@ -82,14 +83,62 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .pickbox{position:absolute;top:10px;left:10px;z-index:1;background:rgba(0,0,0,.6);border-radius:8px;padding:5px 8px;display:flex;gap:6px;align-items:center;font-size:12.5px;cursor:pointer}
 .pickbox input{width:auto;margin:0}
 h3.sec{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;margin:4px 0 10px}
+.vmap{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;margin:2px 0 4px;cursor:pointer}
+.vmap div{min-width:3px;position:relative}
+.vmarks{position:relative;height:8px;margin-bottom:14px}
+.vmarks i{position:absolute;top:0;height:6px;background:var(--fg);border-radius:3px;opacity:.75}
+.chapters .chap{display:grid;grid-template-columns:92px 44px 1fr auto;gap:10px;align-items:start;padding:9px 4px;border-bottom:1px solid var(--line)}
+.chapters .chap.hl{background:#24210f}
+.heat{font-weight:800;border-radius:7px;text-align:center;padding:1px 0;color:#000}
+.chap q{display:block;color:var(--mut);font-size:12.5px;margin-top:3px}
+.hooks{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.chip{font-size:12px;padding:4px 8px;border-radius:14px;background:#22262e;border:1px solid var(--line);text-align:left}
+.chip.on{border-color:var(--acc);color:var(--acc)}
+.ptabs{display:flex;gap:4px;margin:10px 0 0} .ptabs button{font-size:12px;padding:5px 9px} .ptabs button.on{background:#3a3f4b;color:var(--acc)}
+.pp textarea{margin-top:6px} .pp input{margin-top:6px}
+.met{display:grid;grid-template-columns:1.2fr 1.6fr repeat(5,1fr) auto;gap:4px;margin-top:6px}
+.met input,.met select{padding:5px 6px;font-size:12px} .met button{padding:4px 8px}
+.methead{display:grid;grid-template-columns:1.2fr 1.6fr repeat(5,1fr) auto;gap:4px;font-size:11px;color:var(--mut);margin-top:6px}
+table.t{width:100%;border-collapse:collapse;font-size:13px} table.t th,table.t td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-variant-numeric:tabular-nums}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 18px} .kpi{background:var(--card);border-radius:12px;padding:12px 16px;min-width:150px} .kpi b{display:block;font-size:24px}
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.box{background:var(--card);border-radius:12px;padding:12px 14px}
+.ai{white-space:pre-wrap;background:var(--card);border-radius:12px;padding:14px 16px;margin:10px 0 18px}
+.sheetwrap{overflow:auto;max-height:46vh;margin-top:10px;border:1px solid var(--line);border-radius:10px}
+#splash{position:fixed;inset:0;background:#000;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;transition:opacity .6s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash .pear{width:min(150px,32vw);height:auto;animation:rise 1s cubic-bezier(.2,.7,.2,1) both}
+#splash h1{color:#fff;font:600 clamp(30px,6vw,52px)/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.06em;margin:0;animation:rise 1s .25s cubic-bezier(.2,.7,.2,1) both}
+#splash p{color:#fff;opacity:.55;margin:-14px 0 0;font-size:14px;letter-spacing:.18em;text-transform:uppercase;animation:rise 1s .45s cubic-bezier(.2,.7,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+h1.brand{display:flex;align-items:center;gap:8px} .pear.mini{width:16px;height:21px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2a2e37;padding:10px 16px;border-radius:10px;z-index:20}
 @media (max-width:760px){.layout{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--line);max-height:30vh}.cols{grid-template-columns:1fr 1fr}#jobbar .pb{width:80px}}
 </style>
 </head>
 <body>
+<div id="splash" onclick="hideSplash()">
+  <svg class="pear" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="White pear with a bite taken out">
+  <defs><mask id="bite"><rect width="200" height="260" fill="#fff"/>
+    <circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs>
+  <path mask="url(#bite)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/>
+  <path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>
+</svg>
+  <h1>Designer Studio</h1>
+  <p>Long videos into shorts</p>
+</div>
 <header>
-  <h1><b>clip</b>smith</h1>
+  <h1 class="brand"><svg class="pear mini" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="White pear with a bite taken out">
+  <defs><mask id="bite2"><rect width="200" height="260" fill="#fff"/>
+    <circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs>
+  <path mask="url(#bite2)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/>
+  <path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>
+</svg>Designer Studio</h1>
   <div id="jobbar"></div>
+  <button class="ghost" onclick="showInsights()">Insights</button>
+  <button class="ghost" onclick="openProfile()">Profile</button>
   <button class="ghost" onclick="openJobs()">Jobs</button>
   <button class="primary" onclick="openNew()">+ New clips</button>
 </header>
@@ -102,9 +151,9 @@ h3.sec{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.
   <header><h1>New clips</h1></header>
   <div class="content">
     <div class="tabs"><button data-t="lib" class="on">My videos</button><button data-t="up">Upload</button><button data-t="url">Link</button></div>
-    <div id="t-lib"><input id="libq" placeholder="Search videos…" oninput="drawLib()"><div class="lib" id="lib" style="margin-top:8px"></div></div>
+    <div id="t-lib"><input id="libq" placeholder="Search videos… (click several to queue a batch)" oninput="drawLib()"><div class="lib" id="lib" style="margin-top:8px"></div></div>
     <div id="t-up" hidden><input type="file" id="upfile" accept="video/*"><div id="upmsg" class="meta"></div></div>
-    <div id="t-url" hidden><input id="url" placeholder="https://www.youtube.com/watch?v=…"><div class="meta">YouTube and most other video sites (via yt-dlp).</div></div>
+    <div id="t-url" hidden><textarea id="url" placeholder="https://www.youtube.com/watch?v=…&#10;(one link per line for a batch)"></textarea><div class="meta">YouTube, TikTok, Instagram and most other video sites (via yt-dlp). Several links = a batch, processed one after another.</div></div>
     <label>What should the clips be about? (optional)</label>
     <input id="n-prompt" placeholder="e.g. tips for psychologists on Instagram, funny moments, the pricing story">
     <div class="cols">
@@ -182,12 +231,14 @@ async function poll() {
   if (sig !== lastJobSig) {
     const finished = STATE.jobs.some(j => j.status !== 'running' && j.status !== 'queued' && lastJobSig.includes(j.id + 'running'));
     lastJobSig = sig;
-    if (!CUR) { const j = STATE.jobs.find(j => j.status === 'running' && j.project); if (j && STATE.projects.some(p => p.slug === j.project)) openProject(j.project); }
+    if (!CUR && VIEW !== 'insights') { const j = STATE.jobs.find(j => j.status === 'running' && j.project); if (j && STATE.projects.some(p => p.slug === j.project)) openProject(j.project); }
     if (CUR) loadProject(CUR, false);
   } else if (CUR && STATE.jobs.some(j => j.project === CUR && j.status === 'running')) {
     loadProject(CUR, false);
   }
   if (dJobs.open) drawJobs();
+  if (INS_JOB) { const j = STATE.jobs.find(x => x.id === INS_JOB); if (j && j.status !== 'running' && j.status !== 'queued') {
+    INS_JOB = null; const el = $('#ins-ai'); if (el) { el.textContent = j.error || j.result; $('#ins-go').disabled = false; } } }
 }
 function drawJobbar() {
   const j = STATE.jobs.find(j => j.status === 'running') || STATE.jobs.find(j => j.status === 'queued');
@@ -208,7 +259,7 @@ function drawJobs() {
 function openJobs() { drawJobs(); dJobs.showModal(); }
 
 // ------------------------------------------------ project view
-async function openProject(slug) { if (slug !== CUR) PICKED.clear(); CUR = slug; drawProjects(); await loadProject(slug, true); }
+async function openProject(slug) { if (slug !== CUR) PICKED.clear(); VIEW = ''; CUR = slug; drawProjects(); await loadProject(slug, true); }
 async function loadProject(slug, force) {
   const p = await api('/api/projects/' + slug);
   if (!force && PROJ && JSON.stringify(p) === JSON.stringify(PROJ)) return;
@@ -225,7 +276,9 @@ function drawProject() {
     <button onclick="openRepick()" ${p.busy ? 'disabled' : ''}>Find new moments</button>
     <button onclick="openRestyle()" ${p.busy ? 'disabled' : ''}>Restyle all</button>
     <button onclick="openStitch()" ${p.busy ? 'disabled' : ''}>Stitch clips</button>
+    <button onclick="openSheet()">Clip sheet & schedule</button>
     <button class="ghost danger" onclick="delProject()" ${p.busy ? 'disabled' : ''}>Delete</button></div>
+    ${p.map && p.map.length ? mapView(p, clips) : ''}
     ${(p.compilations || []).length ? `<h3 class="sec">Stitched videos</h3><div class="comps">${[...p.compilations].reverse().map(r => comp(r, p)).join('')}</div><h3 class="sec">Clips</h3>` : ''}
     <div class="grid">${clips.map(c => card(c, p, job)).join('')}</div>`;
 }
@@ -268,11 +321,15 @@ function card(c, p, job) {
     ${working ? '<div class="overlay">working…</div>' : ''}${c.file ? `<label class="pickbox"><input type="checkbox" ${PICKED.has(c.id) ? 'checked' : ''} onchange="togglePick(${c.id},this.checked)"> stitch</label>` : ''}${v}
     <div class="body">
       <div class="top"><span class="score s${Math.floor((c.score || 0) / 10) * 10}">${c.score || '–'}</span><input class="f-title" value="${esc(c.title)}"></div>
+      ${(c.hooks || []).length > 1 ? `<div class="hooks" title="Hook options — click to use">${c.hooks.map(h => `<button class="chip ${h === c.title ? 'on' : ''}" onclick="setHook(this)">${esc(h)}</button>`).join('')}</div>` : ''}
       ${Object.keys(sc).length ? `<div class="bars">${['hook', 'flow', 'value', 'trend'].map(k => `<div>${k} ${sc[k] ?? ''}<i><b style="width:${sc[k] || 0}%"></b></i></div>`).join('')}</div>` : ''}
       <div class="meta">${ts(c.start)}–${ts(c.end)} in source · ${c.length ? Math.round(c.length) + 's' : ''} ${c.cut_s ? '· cut ' + c.cut_s + 's' : ''} ${c.layout ? '· ' + esc(c.layout) : ''}</div>
       ${c.why ? `<p class="why">${esc(c.why)}</p>` : ''}
-      <label>Caption</label><textarea class="f-caption">${esc(c.caption)}</textarea>
-      <label>Hashtags</label><input class="f-tags" value="${esc((c.hashtags || []).map(h => '#' + h).join(' '))}">
+      ${c.topic ? `<div class="meta">topic: ${esc(c.topic)}</div>` : ''}
+      <div class="ptabs">${[['ig', 'Instagram'], ['tt', 'TikTok'], ['yt', 'YouTube']].map(([k, n], i) => `<button class="${i ? '' : 'on'}" data-p="${k}" onclick="ptab(this)">${n}</button>`).join('')}</div>
+      <div class="pp" data-p="ig"><textarea class="f-caption" placeholder="Instagram caption">${esc(pf(c).instagram.caption)}</textarea><input class="f-tags" placeholder="#hashtags" value="${esc(tagstr(pf(c).instagram.hashtags))}"></div>
+      <div class="pp" data-p="tt" hidden><textarea class="f-tt-cap" placeholder="TikTok caption">${esc(pf(c).tiktok.caption)}</textarea><input class="f-tt-tags" placeholder="#hashtags" value="${esc(tagstr(pf(c).tiktok.hashtags))}"></div>
+      <div class="pp" data-p="yt" hidden><input class="f-yt-title" placeholder="YouTube Shorts title" value="${esc(pf(c).youtube.title)}"><textarea class="f-yt-desc" placeholder="Description">${esc(pf(c).youtube.description)}</textarea><input class="f-yt-tags" placeholder="tags" value="${esc(tagstr(pf(c).youtube.tags))}"></div>
       <details><summary>Trim, keywords & style</summary>
         <div class="trim">
           <div><label>Start</label><div class="ctl"><button onclick="nudge(this,'f-start',-1)">−1s</button><input class="f-start" value="${ts(c.start)}"><button onclick="nudge(this,'f-start',1)">+1s</button></div></div>
@@ -282,6 +339,11 @@ function card(c, p, job) {
         <div class="row"><div><label>Captions</label><select class="f-captions">${opt(META.captions, o.captions)}</select></div>
           <div><label>Layout</label><select class="f-layout">${opt(META.layouts, o.layout)}</select></div>
           <div><label>Aspect</label><select class="f-aspect">${opt(META.aspects, o.aspect)}</select></div></div>
+      </details>
+      <details><summary>Performance${(c.metrics || []).length ? ` (${c.metrics.length} post${c.metrics.length > 1 ? 's' : ''}, ${fmtN(c.metrics.reduce((a, m) => a + (+m.views || 0), 0))} views)` : ' — add your stats after posting'}</summary>
+        <div class="methead"><span>Platform</span><span>Posted</span><span>Views</span><span>Likes</span><span>Comm.</span><span>Shares</span><span>Saves</span><span></span></div>
+        <div class="mets">${(c.metrics || []).map(metRow).join('')}</div>
+        <div class="actions"><button onclick="this.closest('details').querySelector('.mets').insertAdjacentHTML('beforeend', metRow({}))">+ Add post</button><button onclick="saveMets(${c.id})">Save stats</button></div>
       </details>
       <div class="actions">
         <button class="primary" onclick="saveClip(${c.id})" ${p.busy ? 'disabled' : ''}>Save & render</button>
@@ -294,8 +356,7 @@ function card(c, p, job) {
 function nudge(btn, cls, d) { const i = btn.closest('.card').querySelector('.' + cls); i.value = ts(parseTs(i.value) + d); }
 async function saveClip(id) {
   const el = document.querySelector(`.card[data-id="${id}"]`), q = c => el.querySelector('.' + c).value;
-  const body = {title: q('f-title'), caption: q('f-caption'),
-    hashtags: q('f-tags').split(/[\s,]+/).map(h => h.replace(/^#/, '')).filter(Boolean),
+  const body = {title: q('f-title'), platforms: readPlatforms(el), metrics: readMets(el),
     keywords: q('f-kw').split(',').map(k => k.trim()).filter(Boolean),
     start: parseTs(q('f-start')), end: parseTs(q('f-end')),
     overrides: {captions: q('f-captions'), layout: q('f-layout'), aspect: q('f-aspect')}};
@@ -304,9 +365,133 @@ async function saveClip(id) {
   toast('Rendering…'); poll();
 }
 function copyCap(id) {
+  const el = document.querySelector(`.card[data-id="${id}"]`), k = el.querySelector('.ptabs .on').dataset.p, q = c => el.querySelector('.' + c).value;
+  const text = k === 'ig' ? q('f-caption') + '\n\n' + q('f-tags') : k === 'tt' ? q('f-tt-cap') + '\n\n' + q('f-tt-tags')
+    : q('f-yt-title') + '\n\n' + q('f-yt-desc') + '\n\n' + q('f-yt-tags');
+  navigator.clipboard.writeText(text).then(() => toast({ig: 'Instagram', tt: 'TikTok', yt: 'YouTube'}[k] + ' caption copied'), () => toast('Copy failed'));
+}
+const tags = v => v.split(/[\s,]+/).map(h => h.replace(/^#/, '')).filter(Boolean);
+const tagstr = a => (a || []).map(h => '#' + h).join(' ');
+const fmtN = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n));
+function pf(c) {
+  const p = c.platforms || {};
+  return {instagram: p.instagram || {caption: c.caption || '', hashtags: c.hashtags || []},
+    tiktok: p.tiktok || {caption: '', hashtags: []}, youtube: p.youtube || {title: '', description: '', tags: []}};
+}
+function readPlatforms(el) {
+  const q = c => el.querySelector('.' + c).value;
+  return {instagram: {caption: q('f-caption'), hashtags: tags(q('f-tags'))}, tiktok: {caption: q('f-tt-cap'), hashtags: tags(q('f-tt-tags'))},
+    youtube: {title: q('f-yt-title'), description: q('f-yt-desc'), tags: tags(q('f-yt-tags'))}};
+}
+function ptab(b) {
+  const el = b.closest('.card');
+  el.querySelectorAll('.ptabs button').forEach(x => x.classList.toggle('on', x === b));
+  el.querySelectorAll('.pp').forEach(x => x.hidden = x.dataset.p !== b.dataset.p);
+}
+function setHook(b) {
+  const el = b.closest('.card'); el.querySelector('.f-title').value = b.textContent;
+  el.querySelectorAll('.hooks .chip').forEach(x => x.classList.toggle('on', x === b));
+  toast('Hook chosen — Save & render to put it on the video');
+}
+function metRow(m) {
+  const plat = ['instagram', 'tiktok', 'youtube'].map(x => `<option ${x === m.platform ? 'selected' : ''}>${x}</option>`).join('');
+  return `<div class="met"><select data-m="platform">${plat}</select><input type="datetime-local" data-m="posted_at" value="${esc(m.posted_at || '')}">
+    ${['views', 'likes', 'comments', 'shares', 'saves'].map(k => `<input type="number" min="0" data-m="${k}" value="${m[k] ?? ''}" placeholder="0">`).join('')}
+    <button class="ghost danger" title="Remove" onclick="this.parentElement.remove()">✕</button></div>`;
+}
+function readMets(el) {
+  return [...el.querySelectorAll('.met')].map(r => { const m = {}; r.querySelectorAll('[data-m]').forEach(i => m[i.dataset.m] = i.type === 'number' ? (i.value === '' ? 0 : +i.value) : i.value); return m; })
+    .filter(m => m.views || m.likes || m.posted_at);
+}
+async function saveMets(id) {
   const el = document.querySelector(`.card[data-id="${id}"]`);
-  const text = el.querySelector('.f-caption').value + '\n\n' + el.querySelector('.f-tags').value;
-  navigator.clipboard.writeText(text).then(() => toast('Caption copied'), () => toast('Copy failed'));
+  document.activeElement.blur();
+  await api(`/api/projects/${CUR}/clips/${id}`, {method: 'PATCH', body: {metrics: readMets(el), render: false}});
+  toast('Stats saved — the AI uses them to pick better clips next time'); loadProject(CUR, true);
+}
+
+// ------------------------------------------------ video map (engagement analysis)
+const heat = e => `hsl(${Math.round(220 - e * 1.7)} 85% ${Math.round(28 + e * 0.3)}%)`;
+function mapView(p, clips) {
+  const D = p.info.duration, M = p.map;
+  return `<h3 class="sec">Video map — engagement over time</h3>
+    <div class="vmap" onclick="this.nextElementSibling.nextElementSibling.open=true">${M.map((c, i) => `<div style="flex:${Math.max(0.5, c.end - c.start)};background:${heat(c.engagement)}" title="${esc(c.title)} · ${c.engagement}/100 · ${esc(c.emotion)}" onclick="hlChap(${i})"></div>`).join('')}</div>
+    <div class="vmarks">${clips.map(c => `<i style="left:${100 * c.start / D}%;width:${Math.max(0.6, 100 * (c.end - c.start) / D)}%" title="clip: ${esc(c.title)}"></i>`).join('')}</div>
+    <details class="chapters"><summary>${M.length} chapters · peaks and engagement (white marks above = your clips)</summary>
+    ${M.map((c, i) => `<div class="chap" id="chap${i}"><span class="meta">${ts(c.start).replace(/\.\d$/, '')}–${ts(c.end).replace(/\.\d$/, '')}</span>
+      <span class="heat" style="background:${heat(c.engagement)}">${c.engagement}</span>
+      <div><b>${esc(c.title)}</b> <span class="meta">· ${esc(c.emotion)}</span><div class="meta">${esc(c.summary)}</div><q>Peak: “${esc(c.peak.text)}” — ${esc(c.peak.reason)}</q></div>
+      <button onclick="clipChapter(${i})" ${p.busy ? 'disabled' : ''}>Clip this</button></div>`).join('')}</details>`;
+}
+function hlChap(i) { setTimeout(() => { document.querySelectorAll('.chap').forEach(x => x.classList.remove('hl')); const r = $('#chap' + i); r.classList.add('hl'); r.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 50); }
+async function clipChapter(i) {
+  const c = PROJ.map[i], mx = PROJ.settings.max || 60;
+  let a = c.start, b = c.end;
+  if (b - a > mx) { a = Math.max(c.start, c.peak.start - 8); b = Math.min(c.end, a + mx); }
+  await api(`/api/projects/${CUR}/clips`, {method: 'POST', body: {start: Math.max(0, a - 0.15), end: b + 0.4, title: c.title}});
+  toast('Rendering a clip from that chapter…'); poll();
+}
+
+// ------------------------------------------------ clip sheet + schedule
+function openSheet() {
+  const t = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  $('#set-title').textContent = 'Clip sheet & posting schedule';
+  $('#set-body').innerHTML = `<p class="meta">Every clip with its timestamps, scores, hooks and captions, plus a posting plan (best clips first). Download as CSV to open in Google Sheets or Excel.</p>
+    <div class="cols"><div><label>First post</label><input type="date" id="sh-start" value="${t}"></div>
+      <div><label>Posts per day</label><input type="number" id="sh-per" value="1" min="1" max="5"></div></div>
+    <div class="checks">${['instagram', 'tiktok', 'youtube'].map((x, i) => `<label><input type="checkbox" class="sh-p" value="${x}" ${i ? '' : 'checked'}> ${x}</label>`).join('')}
+      <button onclick="loadSheet()">Preview</button></div><div class="sheetwrap" id="sh-out"></div>`;
+  $('#set-go').textContent = 'Download CSV';
+  $('#set-go').onclick = () => { location.href = sheetUrl('csv'); };
+  dSet.showModal(); loadSheet();
+}
+function sheetUrl(fmt) {
+  const pl = [...document.querySelectorAll('.sh-p:checked')].map(x => x.value).join(',');
+  return `/api/projects/${CUR}/sheet?start=${$('#sh-start').value}&per_day=${$('#sh-per').value}&platforms=${pl}&fmt=${fmt}`;
+}
+async function loadSheet() {
+  const rows = await api(sheetUrl('json'));
+  $('#sh-out').innerHTML = `<table class="t"><tr><th>#</th><th>When</th><th>Platform</th><th>Hook</th><th>Caption</th><th>Score</th><th>Source</th></tr>
+    ${rows.map(r => `<tr><td>${r.rank}</td><td>${esc(r.post_date)} ${esc(r.post_time)}</td><td>${esc(r.platform)}</td><td>${esc(r.platform === 'youtube' ? r.title : r.hook_text)}</td>
+      <td style="max-width:320px">${esc(r.caption)}<div class="meta">${esc(r.hashtags)}</div></td><td class="n">${r.score}</td><td>${r.source_start}–${r.source_end}</td></tr>`).join('')}</table>`;
+}
+
+// ------------------------------------------------ creator profile (remember & learn)
+async function openProfile() {
+  const p = await api('/api/profile');
+  const f = [['niche', 'Niche / what you make', 'e.g. psychology tips for therapists who want clients from Instagram'],
+    ['audience', 'Audience', 'who watches; what they struggle with'], ['tone', 'Tone & voice', 'warm, direct, a bit provocative…'],
+    ['themes', 'Themes to favor', 'topics you want to be known for'], ['goals', 'Goals', 'followers, saves, DMs, sales of a mentorship…'],
+    ['avoid', 'Avoid', 'topics, words or moments never to clip']];
+  $('#set-title').textContent = 'Creator profile';
+  $('#set-body').innerHTML = `<p class="meta">The AI reads this — plus the stats you enter under each clip's “Performance” — every time it picks moments and writes hooks, so it learns what works for you.</p>` +
+    f.map(([k, l, ph]) => `<label>${l}</label><textarea data-k="${k}" placeholder="${ph}" style="min-height:44px">${esc(p[k])}</textarea>`).join('');
+  $('#set-go').textContent = 'Save profile';
+  $('#set-go').onclick = async () => { await api('/api/profile', {method: 'PUT', body: readForm($('#set-body'))}); dSet.close(); toast('Profile saved'); };
+  dSet.showModal();
+}
+
+// ------------------------------------------------ insights (performance tracking)
+let INS_JOB = null, VIEW = '';
+async function showInsights() {
+  VIEW = 'insights'; CUR = null; PROJ = null; drawProjects();
+  const d = await api('/api/insights');
+  const tbl = (title, rows) => `<div class="box"><h3 class="sec">${title}</h3>${rows.length ? `<table class="t"><tr><th></th><th>Clips</th><th>Median views</th><th>Engagement</th></tr>
+    ${rows.map(r => `<tr><td>${esc(r.key)}</td><td class="n">${r.clips}</td><td class="n">${fmtN(r.median_views)}</td><td class="n">${(r.avg_rate * 100).toFixed(1)}%</td></tr>`).join('')}</table>` : '<p class="meta">No data yet.</p>'}</div>`;
+  const ai = STATE.jobs.find(j => j.kind === 'insights' && j.status === 'done');
+  $('#main').innerHTML = `<div class="phead"><h2>Insights<br><small>What's working, from the stats you enter under each clip's “Performance”.</small></h2>
+      <button class="primary" onclick="askInsights()" id="ins-go">Ask AI what's working</button></div>
+    <div class="kpis"><div class="kpi"><b>${d.count}</b><span class="meta">posts tracked</span></div><div class="kpi"><b>${fmtN(d.total_views)}</b><span class="meta">total views</span></div>
+      <div class="kpi"><b>${d.top[0] ? fmtN(d.top[0].views) : '–'}</b><span class="meta">best post</span></div></div>
+    <div class="ai" id="ins-ai" ${ai ? '' : 'hidden'}>${esc(ai ? ai.result : '')}</div>
+    ${d.count ? '' : '<p class="meta">No stats yet. After posting a clip, open it, expand “Performance”, add the platform, time and numbers, and save. Designer Studio then breaks down which topics, lengths, caption styles, platforms and posting hours work best — and feeds your top and bottom performers into the AI so it picks better moments next time.</p>'}
+    <div class="ins-grid">${tbl('By topic', d.by_topic)}${tbl('By length', d.by_length)}${tbl('By caption style', d.by_captions)}${tbl('By platform', d.by_platform)}${tbl('By posting hour', d.by_hour)}</div>
+    ${d.top.length ? `<h3 class="sec" style="margin-top:18px">Top posts</h3><table class="t"><tr><th>Hook</th><th>Topic</th><th>Platform</th><th>Length</th><th>Views</th><th>Engagement</th></tr>
+      ${d.top.map(t => `<tr><td><a href="#" onclick="openProject('${t.project}');return false">${esc(t.title)}</a></td><td>${esc(t.topic || '')}</td><td>${esc(t.platform)}</td><td class="n">${Math.round(t.length)}s</td><td class="n">${fmtN(t.views)}</td><td class="n">${(t.rate * 100).toFixed(1)}%</td></tr>`).join('')}</table>` : ''}`;
+}
+async function askInsights() {
+  const j = await api('/api/insights/ai', {method: 'POST'}); INS_JOB = j.id;
+  $('#ins-go').disabled = true; $('#ins-ai').hidden = false; $('#ins-ai').textContent = 'Thinking…';
 }
 async function delClip(id) { if (!confirm('Delete this clip?')) return; await api(`/api/projects/${CUR}/clips/${id}`, {method: 'DELETE'}); loadProject(CUR, true); }
 async function delProject() { if (!confirm('Delete this project and all its clips? (The source video is kept.)')) return; await api('/api/projects/' + CUR, {method: 'DELETE'}); CUR = null; PROJ = null; $('#main').innerHTML = ''; poll(); }
@@ -378,32 +563,37 @@ async function openNew() {
   const d = META.defaults;
   for (const k of ['count', 'min', 'max', 'aspect', 'captions', 'layout', 'highlight', 'emphasis', 'logo', 'logo_pos', 'music', 'music_volume', 'font_file', 'max_gap', 'model', 'language', 'prompt']) { const el = $('#n-' + k); if (el) el.value = d[k] ?? ''; }
   for (const k of ['hook', 'zoom', 'fillers', 'progress_bar']) $('#n-' + k).checked = !!d[k];
-  SRC = null; dNew.showModal();
+  SRCS.clear(); dNew.showModal();
   LIB = await api('/api/library'); drawLib();
 }
 function drawLib() {
   const q = $('#libq').value.toLowerCase();
   $('#lib').innerHTML = LIB.filter(v => !q || (v.name + v.folder).toLowerCase().includes(q)).slice(0, 300).map(v =>
-    `<div class="${SRC === v.path ? 'on' : ''}" onclick="SRC=${esc(JSON.stringify(v.path))};drawLib()"><span style="flex:1;min-width:0"><b style="word-break:break-all">${esc(v.name)}</b><br><small>${esc(v.folder)} · ${(v.size / 1e9).toFixed(2)} GB</small></span>${v.project ? '<span class="tag">has clips</span>' : ''}</div>`).join('')
+    `<div class="${SRCS.has(v.path) ? 'on' : ''}" onclick="toggleSrc(${esc(JSON.stringify(v.path))})"><span style="flex:1;min-width:0"><b style="word-break:break-all">${esc(v.name)}</b><br><small>${esc(v.folder)} · ${(v.size / 1e9).toFixed(2)} GB</small></span>${v.project ? '<span class="tag">has clips</span>' : ''}</div>`).join('')
     || '<div class="meta">No videos found in ~/Videos.</div>';
 }
+const SRCS = new Set();
+function toggleSrc(p) { SRCS.has(p) ? SRCS.delete(p) : SRCS.add(p); drawLib(); $('#go').textContent = SRCS.size > 1 ? `Find clips in ${SRCS.size} videos` : 'Find clips'; }
 async function startNew() {
-  let source = TAB === 'lib' ? SRC : TAB === 'url' ? $('#url').value.trim() : null;
+  let sources = TAB === 'lib' ? [...SRCS] : TAB === 'url' ? $('#url').value.split(/\s+/).filter(Boolean) : [];
+  let source = sources[0];
   if (TAB === 'up') {
     const f = $('#upfile').files[0]; if (!f) return toast('Choose a file');
     $('#go').disabled = true; $('#upmsg').textContent = 'Uploading…';
     const fd = new FormData(); fd.append('file', f);
-    try { source = (await api('/api/upload', {method: 'POST', body: fd, headers: {}})).path; } finally { $('#go').disabled = false; $('#upmsg').textContent = ''; }
+    try { source = (await api('/api/upload', {method: 'POST', body: fd, headers: {}})).path; sources = [source]; } finally { $('#go').disabled = false; $('#upmsg').textContent = ''; }
   }
   if (!source) return toast('Pick a video first');
   const settings = {};
   for (const k of ['count', 'min', 'max', 'music_volume', 'max_gap']) settings[k] = +$('#n-' + k).value;
   for (const k of ['aspect', 'captions', 'layout', 'highlight', 'emphasis', 'logo', 'logo_pos', 'music', 'font_file', 'model', 'language', 'prompt']) settings[k] = $('#n-' + k).value.trim();
   for (const k of ['hook', 'zoom', 'fillers', 'progress_bar']) settings[k] = $('#n-' + k).checked;
-  await api('/api/projects', {method: 'POST', body: {source, settings}});
-  dNew.close(); toast('Started — watch the progress bar at the top'); CUR = null; poll();
+  await api('/api/projects', {method: 'POST', body: {sources, settings}});
+  dNew.close(); toast(sources.length > 1 ? `Queued ${sources.length} videos` : 'Started — watch the progress bar at the top'); CUR = null; poll();
 }
 
+function hideSplash() { const s = $('#splash'); if (s && !s.classList.contains('out')) { s.classList.add('out'); setTimeout(() => s.remove(), 700); } }
+setTimeout(hideSplash, 2200);
 (async () => { META = await api('/api/meta');
   $('#n-aspect').innerHTML = META.aspects.map(x => `<option>${x}</option>`).join('');
   $('#n-captions').innerHTML = META.captions.map(x => `<option>${x}</option>`).join('');
