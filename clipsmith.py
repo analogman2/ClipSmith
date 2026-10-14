@@ -117,6 +117,9 @@ class Settings:
     font_file: str = ""
     encoder: str = "auto"
     maxrate: str = "16M"
+    scenes: bool = True              # reset framing at camera cuts, layout per scene
+    vision: bool = True              # a vision model looks at each scene (layout, burned-in subtitles)
+    vision_model: str = "qwen3.5:9b"
 
     @classmethod
     def from_dict(cls, d):
@@ -1113,7 +1116,73 @@ def pick_music(s: Settings, k):
     return p if p.exists() else None
 
 
-def render_clip(video, info, clip, words, language, out_path, work, s: Settings, k=0):
+# ---------------------------------------------------------------- scenes: cuts, what each shot shows, its layout
+
+def detect_scenes(video, cs, dur, min_len=1.2):
+    """Camera cuts inside [cs, cs+dur] as clip-relative seconds (ffmpeg scdet, GPU decode)."""
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-hwaccel", "cuda", "-ss", f"{cs:.3f}", "-t", f"{dur:.3f}",
+                        "-i", str(video), "-vf", "scale=320:-2,scdet=threshold=14", "-an", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    cuts = []
+    for m in re.finditer(r"lavfi\.scd\.time:\s*([\d.]+)", r.stderr):
+        t = float(m.group(1))
+        if t - (cuts[-1] if cuts else 0.0) >= min_len and dur - t >= min_len:
+            cuts.append(t)
+    return cuts
+
+
+VISION_PROMPT = """Look at this frame from a video that will be reframed to vertical 9:16. Answer in JSON.
+kind: one_person (one main person on camera), two_people (two people side by side or in one shot), group \
+(three or more), screen_share (a screen, slides, app or game with no visible person), screen_with_webcam \
+(screen content plus a small camera view of a person), or broll_or_other (anything else).
+burned_subtitles: true only if the frame already shows subtitle/caption text burned into the picture."""
+VISION_SCHEMA = {"type": "object", "properties": {
+    "kind": {"type": "string", "enum": ["one_person", "two_people", "group", "screen_share", "screen_with_webcam",
+                                        "broll_or_other"]},
+    "burned_subtitles": {"type": "boolean"}}, "required": ["kind", "burned_subtitles"]}
+
+
+def vision_scenes(video, cs, scenes, s: Settings, work):
+    """Ask the vision model what each scene shows. Cached per clip range; [] when vision is unavailable."""
+    import base64
+    key = hashlib.sha1(json.dumps([str(video), round(cs, 2), [[round(a, 2), round(b, 2)] for a, b in scenes],
+                                   s.vision_model]).encode()).hexdigest()[:12]
+    cache = work / f"vision-{key}.json"
+    if cache.exists():
+        return json.loads(cache.read_text())
+    url = s.ollama.rstrip("/")
+    ensure_model_on_gpu(url, s.vision_model, 4096)
+    out = []
+    for a, b in scenes:
+        jpg = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{cs + (a + b) / 2:.3f}", "-i", str(video), "-frames:v", "1",
+                              "-vf", "scale=768:-2", "-f", "image2", "-c:v", "mjpeg", "-q:v", "4", "-"],
+                             capture_output=True).stdout
+        try:
+            r = _post(url + "/api/chat", {"model": s.vision_model, "stream": False, "format": VISION_SCHEMA, "think": False,
+                                          "keep_alive": "5m", "options": {"temperature": 0, "num_ctx": 4096},
+                                          "messages": [{"role": "user", "content": VISION_PROMPT,
+                                                        "images": [base64.b64encode(jpg).decode()]}]}, 120)
+            out.append(json.loads(r["message"]["content"]))
+        except Exception as e:  # noqa: BLE001
+            log(f"       vision check failed ({str(e)[:80]}); using face tracking only")
+            return []
+    cache.write_text(json.dumps(out))
+    return out
+
+
+def scene_stats(per_sample):
+    stats = {}
+    for faces in per_sample:
+        for tid, cx, cy, h, _ in faces:
+            st = stats.setdefault(tid, {"n": 0, "cx": [], "cy": [], "h": []})
+            st["n"] += 1
+            st["cx"].append(cx)
+            st["cy"].append(cy)
+            st["h"].append(h)
+    return stats
+
+
+def render_clip(video, info, clip, words, language, out_path, work, s: Settings, k=0, explicit_captions=False):
     ow, oh = ASPECTS.get(s.aspect, ASPECTS["9:16"])
     cs, ce = clip["start"], clip["end"]
     dur = ce - cs
@@ -1139,108 +1208,217 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
         bw, bh = H * a_out, float(H)
     else:
         bw, bh = float(W), W / a_out
-    layout = s.layout
-    samples = per_sample = cam = split = None
-    aw, ah = 640, int(round(640 * H / W / 2)) * 2
-    if layout in ("auto", "track", "split", "center"):
-        samples, aw, ah = analyze_faces(video, info, cs, dur)
-        per_sample, stats = track_faces(samples)
-        faced = sum(1 for f in per_sample if f) / max(1, len(per_sample))
-        sc = aw / W
-        if layout in ("auto", "split") and W / H > a_out * 1.2:
-            split = detect_split(per_sample, stats, aw, bw * sc)
-            if split:
-                layout = "split"
-        if layout != "split":
-            if layout == "auto":
-                layout = "track" if faced >= 0.35 else "fit"
-            if layout in ("track", "center"):
-                cam = plan_camera(per_sample, aw, ah, bw * sc) if faced > 0 else None
-    elif layout == "split":
-        layout = "track"
-
-    zf = zoom_curve(tl, kw_times, s.zoom and layout in ("track", "center"))
+    wide = W / H > a_out * 1.2
     cap_y = int(oh * (0.71 if s.aspect == "9:16" else 0.8))
     if s.caption_pos == "middle":
         cap_y = int(oh * 0.58)
     hook_y = int(oh * 0.13)
     inputs = ["-hwaccel", "cuda", "-ss", f"{cs:.3f}", "-t", f"{dur:.3f}", "-i", str(Path(video).resolve())]
 
-    if layout == "split":
-        sc = W / aw
-        halves = []
-        for tid in split:
-            st = stats[tid]
-            fx, fy, fh = (float(np.median(st[k])) * sc for k in ("cx", "cy", "h"))
-            ch = min(float(H), 3.4 * fh)
-            cw = ch * ow / (oh / 2)
-            if cw > W:
-                cw, ch = float(W), W * (oh / 2) / ow
-            x = min(max(fx - cw / 2, 0), W - cw)
-            y = min(max(fy - 0.42 * ch, 0), H - ch)
-            halves.append(f"crop={int(cw) // 2 * 2}:{int(ch) // 2 * 2}:{int(x)}:{int(y)},"
-                          f"scale={ow}:{oh // 2}:flags=lanczos,setsar=1")
-        vchain = (f"[0:v]split[ta][tb];[ta]{halves[0]}[top];[tb]{halves[1]}[bot];"
-                  f"[top][bot]vstack,fps={fps:.4f}[v0]")
-        how = "split screen (two speakers)"
-        cap_y = oh // 2 + 150 if s.caption_pos != "low" else cap_y
-        hook_y = oh // 2 - 330
-    elif layout in ("track", "center"):
-        sc = W / aw
-        lines, last = [], None
-        times = np.array([t for t, _ in samples]) if samples else np.array([0.0])
-        cut_times = [times[i] for i in cam["cuts"]] if cam else []
-        frames = int(dur * fps) + 2
-        first = None
+    # ---- scenes and what each one shows
+    cuts = detect_scenes(video, cs, dur) if s.scenes and s.layout != "fit" else []
+    bounds = [0.0] + cuts + [dur]
+    scenes = list(zip(bounds, bounds[1:]))
+    seen = vision_scenes(video, cs, scenes, s, work) if (s.vision and wide and s.layout in ("auto", "screen")) else []
+    burned = bool(seen) and sum(1 for v in seen if v.get("burned_subtitles")) > len(seen) / 2
+
+    samples = per_sample = None
+    aw, ah = 640, int(round(640 * H / W / 2)) * 2
+    if s.layout != "fit":
+        samples, aw, ah = analyze_faces(video, info, cs, dur)
+        per_sample, _ = track_faces(samples)
+    times = np.array([t for t, _ in samples]) if samples else np.array([0.0])
+    sc = W / aw                     # analysis px -> source px
+    plan = []                       # per scene: {"layout", ...}
+    for si, (a, b) in enumerate(scenes):
+        idx = [i for i, t in enumerate(times) if a <= t < b] if per_sample else []
+        sub = [per_sample[i] for i in idx] if per_sample else []
+        stats = scene_stats(sub)
+        faced = sum(1 for f in sub if f) / max(1, len(sub))
+        kind = seen[si]["kind"] if si < len(seen) else None
+        lay = s.layout
+        if lay in ("auto", "split", "screen"):
+            two = detect_split(sub, stats, aw, bw / sc) if (wide and sub) else None
+            if lay == "screen" or kind in ("screen_share", "screen_with_webcam"):
+                lay = "screen"
+            elif two:                      # two faces far apart all scene long: trust the geometry
+                lay = "split"
+            elif lay == "split":
+                lay = "track"
+            else:
+                lay = "track" if faced >= 0.35 else "fit"
+        if lay == "screen":
+            big = max(stats.items(), key=lambda kv: kv[1]["n"] * np.median(kv[1]["h"]), default=None)
+            if big is None or big[1]["n"] < 0.3 * max(1, len(sub)):
+                lay = "fit"            # nothing to put in the presenter strip
+        e = {"a": a, "b": b, "layout": lay, "idx": idx, "kind": kind}
+        if lay == "track":
+            e["cam"] = plan_camera(sub, aw, ah, bw / sc) if faced > 0 else None
+        elif lay == "split":
+            e["split"] = [(float(np.median(stats[t]["cx"])), float(np.median(stats[t]["cy"])), float(np.median(stats[t]["h"])))
+                          for t in two]
+        elif lay == "screen":
+            st = big[1]
+            e["face"] = (float(np.median(st["cx"])), float(np.median(st["cy"])), float(np.median(st["h"])))
+        plan.append(e)
+    # neighbours with the same layout and no cut between them in practice: keep as separate scenes (camera resets)
+    used = []
+    for e in plan:
+        if e["layout"] not in used:
+            used.append(e["layout"])
+
+    zf = zoom_curve(tl, kw_times, s.zoom and ("track" in used or "center" in used))
+    scene_of = lambda t: next((i for i, e in enumerate(plan) if t < e["b"]), len(plan) - 1)
+    frames = int(dur * fps) + 2
+    branch = {}
+    g0 = []
+
+    def sendcmd_file(name, rows):
+        f = work / f"{tag}.{name}.cmd"
+        f.write_text("\n".join(rows) + "\n")
+        return fesc(f.name)
+
+    if "track" in used or "center" in used:
+        lines, last, first = [], None, None
         for f in range(frames):
             t = f / fps
-            if cam:
-                seg = sum(1 for c in cut_times if t >= c)
-                lo = 0 if seg == 0 else cam["cuts"][seg - 1]
-                hi = cam["cuts"][seg] if seg < len(cam["cuts"]) else len(times)
-                fx = np.interp(t, times[lo:hi], cam["x"][lo:hi]) * sc
-                fy = np.interp(t, times[lo:hi], cam["y"][lo:hi]) * sc
+            e = plan[scene_of(t)]
+            if e["layout"] in ("track", "center"):
+                cam = e.get("cam")
+                if cam is not None and e["idx"]:
+                    tt = times[e["idx"]]
+                    seg_cuts = [tt[i] for i in cam["cuts"]]
+                    seg = sum(1 for c in seg_cuts if t >= c)
+                    lo = 0 if seg == 0 else cam["cuts"][seg - 1]
+                    hi = cam["cuts"][seg] if seg < len(cam["cuts"]) else len(tt)
+                    fx = np.interp(t, tt[lo:hi], cam["x"][lo:hi]) * sc
+                    fy = np.interp(t, tt[lo:hi], cam["y"][lo:hi]) * sc
+                else:
+                    fx, fy = W / 2, H * 0.4
+                if e["layout"] == "center" or s.layout == "center":
+                    fx = W / 2
+                z = zf(t)
+                w, h = bw / z, bh / z
+                x = min(max(fx - w / 2, 0), W - w)
+                y = min(max(fy - 0.38 * h, 0), H - h) if (z > 1.001 or bh < H) else (H - h) / 2
+                v = (int(w) // 2 * 2, int(h) // 2 * 2, int(x) // 2 * 2, int(y) // 2 * 2)
             else:
-                fx, fy = W / 2, H * 0.4
-            if layout == "center":
-                fx = W / 2
-            z = zf(t)
-            w, h = bw / z, bh / z
-            x = min(max(fx - w / 2, 0), W - w)
-            y = min(max(fy - 0.38 * h, 0), H - h) if (z > 1.001 or bh < H) else (H - h) / 2
-            v = (int(w) // 2 * 2, int(h) // 2 * 2, int(x) // 2 * 2, int(y) // 2 * 2)
+                v = last or (int(bw) // 2 * 2, int(bh) // 2 * 2, 0, 0)
             if first is None:
                 first = v
             if v != last:
-                cmds = []
-                for name, val, old in zip("whxy", v, last or (None,) * 4):
-                    if val != old:
-                        cmds.append(f"crop@rf {name} {val}")
+                cmds = [f"crop@rf {nm} {val}" for nm, val, old in zip("whxy", v, last or (None,) * 4) if val != old]
                 lines.append(f"{t:.4f} " + ", ".join(cmds) + ";")
                 last = v
-        cmd_file = work / f"{tag}.cmd"
-        cmd_file.write_text("\n".join(lines) + "\n")
-        vchain = (f"[0:v]sendcmd=f={fesc(cmd_file.name)},crop@rf=w={first[0]}:h={first[1]}:x={first[2]}:y={first[3]},"
-                  f"scale={ow}:{oh}:flags=lanczos,setsar=1,fps={fps:.4f}[v0]")
-        how = ("speaker tracking" + (f", {len(cam['cuts'])} camera cuts" if cam and cam["cuts"] else "")) \
-            if layout == "track" else "center crop"
-        if s.zoom:
-            how += ", zooms"
-        # keep the hook title off the face: above the head if there's room, else under the chin
-        if cam is not None:
-            fy_top = np.median(cam["y"] - 0.75 * cam["h"]) * sc
-            fy_bot = np.median(cam["y"] + 0.6 * cam["h"]) * sc
-            y0 = min(max(np.median(cam["y"]) * sc - 0.38 * bh, 0), H - bh) if bh < H else 0
-            top, bottom = (fy_top - y0) * oh / bh, (fy_bot - y0) * oh / bh
-            height = len(wrap(clip.get("title", ""), 20)) * 105 + 40
-            if top - 40 < hook_y + height and bottom + 30 + height <= cap_y - 130:
-                hook_y = int(bottom + 30)
-    else:   # fit: whole frame over a blurred copy of itself
-        vchain = (f"[0:v]split[bgi][fgi];[bgi]scale={ow}:{oh}:force_original_aspect_ratio=increase,"
-                  f"crop={ow}:{oh},gblur=sigma=40,eq=brightness=-0.12[bg];"
-                  f"[fgi]scale={ow}:{oh}:force_original_aspect_ratio=decrease:flags=lanczos[fg];"
-                  f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps={fps:.4f}[v0]")
-        how = "fit with blurred background"
+        branch["track"] = (f"sendcmd=f={sendcmd_file('track', lines)},crop@rf=w={first[0]}:h={first[1]}:x={first[2]}:y={first[3]},"
+                           f"scale={ow}:{oh}:flags=lanczos")
+        branch["center"] = branch["track"]
+
+    if "split" in used:
+        halves = {0: [], 1: []}
+        firsts = {}
+        for e in plan:
+            if e["layout"] != "split":
+                continue
+            for j, (fx, fy, fh) in enumerate(e["split"]):
+                fx, fy, fh = fx * sc, fy * sc, fh * sc
+                ch = min(float(H), 3.4 * fh)
+                cw = ch * ow / (oh / 2)
+                if cw > W:
+                    cw, ch = float(W), W * (oh / 2) / ow
+                x = min(max(fx - cw / 2, 0), W - cw)
+                y = min(max(fy - 0.42 * ch, 0), H - ch)
+                v = (int(cw) // 2 * 2, int(ch) // 2 * 2, int(x) // 2 * 2, int(y) // 2 * 2)
+                firsts.setdefault(j, v)
+                halves[j].append(f"{max(0.0, e['a']):.4f} " + ", ".join(f"crop@h{j} {nm} {val}" for nm, val in zip("whxy", v)) + ";")
+        parts = []
+        for j in (0, 1):
+            w0, h0, x0, y0 = firsts[j]
+            parts.append(f"sendcmd=f={sendcmd_file(f'half{j}', halves[j])},crop@h{j}=w={w0}:h={h0}:x={x0}:y={y0},"
+                         f"scale={ow}:{oh // 2}:flags=lanczos,setsar=1")
+        branch["split"] = ("split[sa][sb];[sa]" + parts[0] + "[stop];[sb]" + parts[1] + "[sbot];[stop][sbot]vstack")
+        cap_y = oh // 2 + 60 if s.caption_pos != "low" else cap_y    # captions on the seam, covering nobody
+        hook_y = oh // 2 - 330
+
+    if "screen" in used:
+        h1 = int(oh * 0.56) // 2 * 2
+        h2 = oh - h1
+        rows, first = [], None
+        for e in plan:
+            if e["layout"] != "screen":
+                continue
+            fx, fy, fh = (v * sc for v in e["face"])
+            ch = min(float(H), 2.6 * fh)
+            cw = ch * ow / h2
+            if cw > W:
+                cw, ch = float(W), W * h2 / ow
+            x = min(max(fx - cw / 2, 0), W - cw)
+            y = min(max(fy - 0.45 * ch, 0), H - ch)
+            v = (int(cw) // 2 * 2, int(ch) // 2 * 2, int(x) // 2 * 2, int(y) // 2 * 2)
+            first = first or v
+            rows.append(f"{e['a']:.4f} " + ", ".join(f"crop@pf {nm} {val}" for nm, val in zip("whxy", v)) + ";")
+        branch["screen"] = (f"split=3[s1][s2][s3];[s1]scale={ow}:{h1}:force_original_aspect_ratio=increase,crop={ow}:{h1},"
+                            f"gblur=sigma=30,eq=brightness=-0.15[sbg];[s2]scale={ow}:{h1}:force_original_aspect_ratio=decrease:"
+                            f"flags=lanczos[sfg];[sbg][sfg]overlay=(W-w)/2:(H-h)/2,setsar=1[stop2];"
+                            f"[s3]sendcmd=f={sendcmd_file('presenter', rows)},crop@pf=w={first[0]}:h={first[1]}:x={first[2]}:"
+                            f"y={first[3]},scale={ow}:{h2}:flags=lanczos,setsar=1[sbot2];[stop2][sbot2]vstack")
+        if "split" not in used and s.caption_pos != "low":
+            cap_y = h1 + 120                                       # just under the screen
+
+    if "fit" in used:
+        branch["fit"] = (f"split[fb][ff];[fb]scale={ow}:{oh}:force_original_aspect_ratio=increase,crop={ow}:{oh},"
+                         f"gblur=sigma=40,eq=brightness=-0.12[fbg];[ff]scale={ow}:{oh}:force_original_aspect_ratio=decrease:"
+                         f"flags=lanczos[ffg];[fbg][ffg]overlay=(W-w)/2:(H-h)/2")
+
+    # one branch per layout over the whole clip, then each scene takes its stretch from its layout's branch
+    names = {lay: f"L{i}" for i, lay in enumerate(used)}
+    if len(used) > 1:
+        g0.append("[0:v]split=" + str(len(used)) + "".join(f"[in{names[l]}]" for l in used))
+    else:
+        g0.append(f"[0:v]null[in{names[used[0]]}]")
+    for lay in used:
+        chain = branch[lay]
+        # a branch's internal labels must be unique: prefix them with the branch name
+        chain = re.sub(r"\[(s[a-z0-9]+|f[a-z0-9]+|stop2?|sbot2?)\]", lambda m, n=names[lay]: f"[{n}{m.group(1)}]", chain)
+        g0.append(f"[in{names[lay]}]{chain},setsar=1,fps={fps:.4f},format=yuv420p[{names[lay]}]")
+    if len(plan) == 1:
+        g0.append(f"[{names[plan[0]['layout']]}]null[v0]")
+    else:
+        uses = {l: [i for i, e in enumerate(plan) if e["layout"] == l] for l in used}
+        for l, ids in uses.items():
+            if len(ids) > 1:
+                g0.append(f"[{names[l]}]split={len(ids)}" + "".join(f"[{names[l]}_{i}]" for i in ids))
+            else:
+                g0.append(f"[{names[l]}]null[{names[l]}_{ids[0]}]")
+        for i, e in enumerate(plan):
+            g0.append(f"[{names[e['layout']]}_{i}]trim=start={e['a']:.4f}:end={e['b']:.4f},setpts=PTS-STARTPTS[sc{i}]")
+        g0.append("".join(f"[sc{i}]" for i in range(len(plan))) + f"concat=n={len(plan)}:v=1:a=0[v0]")
+    vchain = ";".join(g0)
+
+    counts = {l: sum(1 for e in plan if e["layout"] == l) for l in used}
+    label = {"track": "speaker tracking", "center": "center crop", "split": "split screen", "screen": "screencast",
+             "fit": "fit + blur"}
+    how = ", ".join(f"{label[l]}" + (f" ×{counts[l]}" if counts[l] > 1 else "") for l in used)
+    if len(plan) > 1:
+        how = f"{len(plan)} scenes: " + how
+    if s.zoom and ("track" in used or "center" in used):
+        how += ", zooms"
+    if burned:
+        how += ", source already has subtitles" + ("" if explicit_captions else " (ours off)")
+
+    # keep the hook title off the face (single tracked scene): above the head if there's room, else under the chin
+    tracked = [e for e in plan if e["layout"] == "track" and e.get("cam") is not None]
+    if tracked and used == ["track"]:
+        cam = max(tracked, key=lambda e: e["b"] - e["a"])["cam"]
+        fy_top = np.median(cam["y"] - 0.75 * cam["h"]) * sc
+        fy_bot = np.median(cam["y"] + 0.6 * cam["h"]) * sc
+        y0 = min(max(np.median(cam["y"]) * sc - 0.38 * bh, 0), H - bh) if bh < H else 0
+        top, bottom = (fy_top - y0) * oh / bh, (fy_bot - y0) * oh / bh
+        height = len(wrap(clip.get("title", ""), 20)) * 105 + 40
+        if top - 40 < hook_y + height and bottom + 30 + height <= cap_y - 130:
+            hook_y = int(bottom + 30)
+    if burned and not explicit_captions:
+        ws = []                     # don't stack our captions on top of the ones already in the video
 
     fonts, font_name = font_setup(work, s)
     ass = work / f"{tag}.ass"
@@ -1371,7 +1549,7 @@ class Project:
                 (self.dir / old).with_suffix(ext).unlink(missing_ok=True)
         self.work.mkdir(parents=True, exist_ok=True)
         r = render_clip(video, self.data["info"], c, self.words, self.data.get("language", ""),
-                        self.dir / name, self.work, s, c["id"])
+                        self.dir / name, self.work, s, c["id"], explicit_captions="captions" in c.get("overrides", {}))
         c.update(r, file=name, rendered=time.time())
         (self.dir / name).with_suffix(".txt").write_text(
             f"{c.get('title', '')}\n\n{c.get('caption', '')}\n\n" + " ".join("#" + h for h in c.get("hashtags", [])) + "\n")
