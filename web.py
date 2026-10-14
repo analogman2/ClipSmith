@@ -651,9 +651,27 @@ async def links_list(req: Request):
     """What's behind a share link: one video, or the videos in a shared folder (Google Drive, Dropbox...)."""
     import re as _re
     import yt_dlp
+    import gdrive
     url = ((await req.json()).get("url") or "").strip()
     if not _re.match(r"https?://", url):
         raise HTTPException(400, "paste a link starting with https://")
+    if gdrive.is_drive(url):
+        try:
+            kind, fid = gdrive.parse(url)
+            if kind == "folder":
+                f = gdrive.list_folder(fid)
+                vids = [i for i in f["items"] if i["video"]]
+                if not vids:
+                    raise ValueError(f"No videos in “{f['title']}” ({len(f['items'])} other files). Subfolders aren't opened.")
+                return {"kind": "folder", "title": f["title"],
+                        "items": [{"title": i["name"], "url": f"https://drive.google.com/file/d/{i['id']}/view"} for i in vids]}
+            info = gdrive.file_info(fid)
+            if not info["type"].startswith("video/") and not gdrive.VIDEO_RE.search(info["name"]):
+                raise ValueError(f"“{info['name']}” isn't a video.")
+            return {"kind": "file", "title": info["name"], "items": [{"title": info["name"], "url": url,
+                                                                      "size": info["size"]}]}
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     try:
         with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "extract_flat": "in_playlist", "noplaylist": False}) as y:
             info = y.extract_info(url, download=False)

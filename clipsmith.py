@@ -173,6 +173,15 @@ def fetch_rclone(spec, dest):
 
 
 def fetch_url(url, dest):
+    import gdrive
+    if gdrive.is_drive(url):                      # yt-dlp's Drive support gets 403 from Google; fetch directly
+        log("[0/4] downloading from Google Drive...", 0.01)
+        try:
+            path = gdrive.download(url, dest, progress=lambda f: report(0.01 + 0.19 * f))
+        except ValueError as e:
+            raise SystemExit(str(e))
+        log(f"[0/4] downloaded {path.name}", 0.2)
+        return path
     import yt_dlp
     dest.mkdir(parents=True, exist_ok=True)
     log(f"[0/4] downloading {url} ...")
