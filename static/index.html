@@ -647,7 +647,8 @@ function drawInspector() {
       <div class="grid3"><div><label class="f">Captions</label><select id="f-captions">${opt(META.captions, o.captions)}</select></div>
         <div><label class="f">Layout</label><select id="f-layout">${opt(META.layouts, o.layout)}</select></div>
         <div><label class="f">Aspect</label><select id="f-aspect">${opt(META.aspects, o.aspect)}</select></div></div>
-      ${c.why ? `<div class="sect"><span class="cap">Why the AI picked it</span><p class="mut" style="margin:4px 0 0">${esc(c.why)}</p></div>` : ''}${actions}`,
+      ${c.why ? `<div class="sect"><span class="cap">Why the AI picked it</span><p class="mut" style="margin:4px 0 0">${esc(c.why)}</p></div>` : ''}${actions}
+      ${dubSection(c, busy)}`,
     scores: () => `<div class="wheels"><div class="w0">${wheel('Virality', c.score, 112)}</div>${['hook', 'flow', 'value', 'trend'].map(k => wheel(k, sc[k], 86)).join('')}</div>
       ${c.topic ? `<p class="mut" style="text-align:center">topic: ${esc(c.topic)}</p>` : ''}`,
     captions: () => `<div class="segc">${[['ig', 'Instagram'], ['tt', 'TikTok'], ['yt', 'YouTube']].map(([k, n]) => `<button class="${k === PTAB ? 'on' : ''}" onclick="ptab('${k}')">${n}</button>`).join('')}</div>
@@ -958,6 +959,21 @@ async function makeMontage() {
   closeMontage(); toast('Stitching… it will appear in the browser under Stitched'); poll();
 }
 
+
+// ------------------------------------------------ dubbing
+function dubSection(c, busy) {
+  const langs = META.dub_langs || {}, dubs = c.dubs || {};
+  const opts = Object.entries(langs).filter(([k]) => k !== PROJ.language).map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+  return `<div class="sect"><span class="cap">Dub in another language</span><p class="mut" style="margin:4px 0">Translates the clip and re-voices it in the speaker's own cloned voice, with new captions and hook.</p>
+    <div class="row"><select id="dub-lang" class="grow">${opts}</select><button class="btn pri" onclick="dubClip(${c.id})" ${busy || !c.file ? 'disabled' : ''}>${ico('speaker')}Dub</button></div>
+    ${Object.entries(dubs).map(([k, d]) => `<div class="row" style="margin-top:6px"><span class="grow">${esc(langs[k] || k)} · <span class="mut">${esc(d.title || '')}</span></span>
+      <button class="ib box" title="Play" onclick="playFile('${fileUrl(d.file)}?v=${d.rendered}', ${esc(JSON.stringify((langs[k] || k) + ': ' + (d.title || '')))})">${ico('play')}</button>
+      <a class="ib box" title="Download" href="${fileUrl(d.file)}" download>${ico('dl')}</a>
+      <button class="ib box" title="Delete" onclick="delDub(${c.id},'${k}')" ${busy ? 'disabled' : ''}>${ico('trash')}</button></div>`).join('')}</div>`;
+}
+async function dubClip(id) { const lang = $('#dub-lang').value; await runJob(api(`/api/projects/${CUR}/clips/${id}/dub`, {method: 'POST', body: {lang}}), 'Dubbing — translating, cloning the voice, rendering (about a minute)…'); }
+async function delDub(id, lang) { if (!confirm('Delete this dub?')) return; await api(`/api/projects/${CUR}/clips/${id}/dub/${lang}`, {method: 'DELETE'}); loadProject(true); }
+function playFile(url, title) { if (!VID) return; MODE = 'clip'; VID.src = url; $('#vtitle').textContent = title; $('#vbadge').textContent = 'Dub'; VID.play(); }
 
 // ------------------------------------------------ jobs the UI waits for
 async function runJob(req, msg) {

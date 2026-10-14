@@ -104,7 +104,9 @@ def index():
 @app.get("/api/meta")
 def meta():
     brand = cs.load_brand(HERE / "brand.json")
+    import dub
     return {"defaults": {**cs.Settings().to_dict(), **brand}, "captions": list(cs.CAPTION_STYLES) + ["none"],
+            "dub_langs": dub.DUB_LANGS,
             "aspects": list(cs.ASPECTS), "layouts": ["auto", "track", "split", "fit", "center"]}
 
 
@@ -429,6 +431,32 @@ async def cover(slug: str, cid: int, req: Request):
     project(slug)
     t, text, style = float(body.get("t", 0)), (body.get("text") or "").strip(), body.get("style", "stroke")
     return studio_job(slug, "Making a Reels cover", lambda p, s: studio.make_cover(p, p.clip(cid), t, text, style))
+
+
+@app.post("/api/projects/{slug}/clips/{cid}/dub")
+async def dub_clip(slug: str, cid: int, req: Request):
+    import dub
+    body = await req.json()
+    lang = body.get("lang", "en")
+    if lang not in dub.DUB_LANGS:
+        raise HTTPException(400, "unsupported language")
+    p = project(slug)
+    c = p.clip(cid)
+    if not c.get("file"):
+        raise HTTPException(400, "render the clip first")
+    return studio_job(slug, f"Dub into {dub.DUB_LANGS[lang]}: {c.get('title', '')}", lambda p, s: dub.dub_clip(p, p.clip(cid), lang))
+
+
+@app.delete("/api/projects/{slug}/clips/{cid}/dub/{lang}")
+def delete_dub(slug: str, cid: int, lang: str):
+    p = editable(slug)
+    c = p.clip(cid)
+    d = c.get("dubs", {}).pop(lang, None)
+    if d:
+        for ext in (".mp4", ".jpg", ".srt"):
+            (p.dir / d["file"]).with_suffix(ext).unlink(missing_ok=True)
+    p.save()
+    return {"ok": True}
 
 
 @app.delete("/api/projects/{slug}")

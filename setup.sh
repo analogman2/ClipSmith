@@ -9,3 +9,7 @@ mkdir -p assets
 [ -s assets/face_detection_yunet_2023mar.onnx ] || curl -fsSL -o assets/face_detection_yunet_2023mar.onnx \
   https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 echo "Ready. Try: ./clipsmith.py my_video.mp4"
+# Dubbing voice (voice cloning), used through ~/venv-speech
+if [ -x "$HOME/venv-speech/bin/python" ]; then
+  "$HOME/venv-speech/bin/python" -c "from huggingface_hub import snapshot_download as d; d('Qwen/Qwen3-TTS-12Hz-1.7B-Base')" >/dev/null && echo "Dubbing voice model ready."
+fi

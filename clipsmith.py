@@ -1182,7 +1182,8 @@ def scene_stats(per_sample):
     return stats
 
 
-def render_clip(video, info, clip, words, language, out_path, work, s: Settings, k=0, explicit_captions=False):
+def render_clip(video, info, clip, words, language, out_path, work, s: Settings, k=0, explicit_captions=False, dub=None):
+    """dub: {"wav", "words", "title"} renders the clip with a new voice track, captions and hook (dub.py)."""
     ow, oh = ASPECTS.get(s.aspect, ASPECTS["9:16"])
     cs, ce = clip["start"], clip["end"]
     dur = ce - cs
@@ -1202,6 +1203,9 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
     ws = [{"w": words[i]["w"], "s": tl(words[i]["s"] - cs), "e": tl(words[i]["e"] - cs),
            "kw": norm_word(words[i]["w"]) in kws} for i in kept]
     kw_times = [(words[i]["s"] - cs, words[i]["e"] - cs) for i in kept if norm_word(words[i]["w"]) in kws]
+    title = clip.get("title", "")
+    if dub:
+        ws, title = dub["words"], dub["title"]
 
     # base window: the largest output-shaped rectangle that fits in the source
     if W / H > a_out:
@@ -1422,13 +1426,13 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
 
     fonts, font_name = font_setup(work, s)
     ass = work / f"{tag}.ass"
-    write_ass(ass, ws, tl.length, clip.get("title", ""), s, ow, oh, font_name, hook_y, cap_y)
+    write_ass(ass, ws, tl.length, title, s, ow, oh, font_name, hook_y, cap_y)
     write_srt(out_path.with_suffix(".srt"), ws)
 
     n = len(pieces)
     g = [vchain]
     g.append(f"[v0]split={n}" + "".join(f"[vs{i}]" for i in range(n)) if n > 1 else "[v0]null[vs0]")
-    has_a = info["audio"]
+    has_a = info["audio"] and not dub          # cut the source audio along with the video
     if has_a:
         g.append(f"[0:a]asplit={n}" + "".join(f"[as{i}]" for i in range(n)) if n > 1 else "[0:a]anull[as0]")
     cat = ""
@@ -1444,6 +1448,11 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
     g.append(f"[vc]subtitles=f={fesc(ass.name)}:fontsdir={fesc(fonts.resolve())}[vsub]")
 
     vlast, nin = "vsub", 1
+    if dub:                                     # the new voice is already on the output timeline
+        inputs += ["-i", str(Path(dub["wav"]).resolve())]
+        g.append(f"[{nin}:a]aresample=48000,apad,atrim=0:{tl.length:.3f}[ac]")
+        nin += 1
+        has_a = True
     logo = Path(s.logo).expanduser() if s.logo else None
     if logo and logo.exists():
         inputs += ["-i", str(logo.resolve())]
@@ -1536,6 +1545,16 @@ class Project:
             raise ValueError("clip must be at least 1 second long")
         c["i0"], c["i1"] = words_in(self.words, start, end)
         c["start"], c["end"] = round(start, 3), round(end, 3)
+
+    def render_dub(self, c, dub, lang):
+        """Render a dubbed copy of a clip as <clip>.<lang>.mp4 (the original clip is untouched)."""
+        s = Settings.from_dict({**self.settings.to_dict(), **c.get("overrides", {})})
+        stem = Path(c.get("file") or f"clip{c['id']}.mp4").stem
+        name = f"{stem}.{lang}.mp4"
+        r = render_clip(Path(self.data["video"]), self.data["info"], c, self.words, self.data.get("language", ""),
+                        self.dir / name, self.work, s, c["id"], explicit_captions="captions" in c.get("overrides", {}),
+                        dub=dub)
+        return {**r, "file": name, "rendered": time.time()}
 
     def render(self, c, settings=None):
         s = settings or self.settings

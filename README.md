@@ -28,6 +28,18 @@ to free. It never falls back to the CPU.
 
 Jobs run one at a time, because they share the GPU. The progress bar at the top shows the current one.
 
+### Publishing tools
+- **YouTube Studio** (timeline toolbar): 10 titles with a refine chat, a description with chapter
+  timestamps from the video map, tags, a pinned comment, and thumbnails built from frames where the
+  speaker's eyes are open and the face is expressive.
+- **Instagram kit** (inspector tab): 5 caption options with a refine chat, broad/niche/community
+  hashtag sets, alt text, a first comment, and a Reels cover with the title inside the 3:4 area the
+  profile grid shows.
+- **Safe zones** (viewer): shows where the Reels/TikTok buttons and caption cover the video.
+- **Dubbing** (Clip tab): translates a clip and re-voices it in the speaker's own cloned voice
+  (Qwen3-TTS Base), with new captions and hook. English, Spanish, Portuguese, French, German,
+  Italian, Japanese, Korean, Chinese, Russian.
+
 ## What it does
 
 1. **Transcribes**: faster-whisper `large-v3-turbo` on the GPU, with word-level timestamps and
@@ -35,7 +47,9 @@ Jobs run one at a time, because they share the GPU. The progress bar at the top 
 2. **Picks moments**: Ollama (default `qwen3.6:27b`, checked to fit fully in VRAM) acts as a
    short-form editor. It looks for a hook, a self-contained idea and a payoff. Each pick gets a score
    with a breakdown, a title, a caption, hashtags and keywords, written in the video's own language.
-3. **Reframes**: YuNet face detection with mouth-motion speaker detection follows whoever is
+3. **Reframes**: detects camera cuts and lays out each scene separately. A local vision model
+   (`qwen3.5:9b`) says what each scene shows (one person, two people, a screen share) and spots
+   burned-in subtitles, so ours stay off. YuNet face detection with mouth-motion speaker detection follows whoever is
    talking and hard-cuts when the speaker changes. Two people who are far apart get a **split
    screen**. Footage without faces gets a blurred-background **fit**. Outputs 9:16, 4:5 or 1:1.
 4. **Edits**: cuts filler words (um/uh/hã…) and pauses. Adds alternating **punch-in zooms** on
@@ -64,6 +78,10 @@ works, for example `{"highlight": "#FF3EA5", "logo": "~/brand/logo.png", "captio
 
 Run `./clipsmith.py -h` for everything. Transcripts and AI picks are cached in
 `clips/<name>/.work/`, so restyling is fast.
+
+Dubbing runs the voice in the speech environment (`~/venv-speech`, set `DUB_PYTHON` to change it)
+under the GPU broker. It needs the `Qwen/Qwen3-TTS-12Hz-1.7B-Base` model (about 4 GB in the
+Hugging Face cache).
 
 ## Not included (needs outside services)
 
