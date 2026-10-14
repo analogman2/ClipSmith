@@ -26,6 +26,7 @@ INDEX = DIR / "users.json"
 SESSIONS = DIR / "sessions.json"
 LOG = Path(os.environ.get("DS_ACTIVITY_LOG") or HERE / "logs" / "activity.jsonl")
 SESSION_DAYS = 60
+ADMIN_NAME = os.environ.get("DS_ADMIN", "jt").strip().lower()   # the admin is this user, whenever they sign up
 _lock = threading.Lock()
 
 
@@ -86,7 +87,7 @@ def create(name, passcode=""):
         users = all_users()
         if any(u["name"].lower() == name.lower() for u in users):
             raise ValueError("Someone already uses that name.")
-        u = {"id": uuid.uuid4().hex[:10], "name": name, "admin": not users, "created": time.time(),
+        u = {"id": uuid.uuid4().hex[:10], "name": name, "admin": name.lower() == ADMIN_NAME, "created": time.time(),
              "passcode": _hash(passcode) if passcode else None, "photo": False}
         users.append(u)
         _write(INDEX, users)
