@@ -21,9 +21,9 @@ CONFIG = Path(__file__).resolve().parent / "instagram.json"
 VERSION = "v21.0"
 
 
-def load():
+def load(config=None):
     try:
-        return json.loads(CONFIG.read_text())
+        return json.loads(Path(config or CONFIG).read_text())
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -52,12 +52,12 @@ def _call(method, url, params=None, data=None, headers=None, timeout=60):
         raise SystemExit(f"Couldn't reach Instagram ({e.reason}).")
 
 
-def status():
-    cfg = load()
+def status(config=None):
+    cfg = load(config)
     return {"connected": bool(cfg.get("token") and cfg.get("user_id")), "username": cfg.get("username", "")}
 
 
-def connect(token, user_id="", graph_base_override=""):
+def connect(token, user_id="", graph_base_override="", config=None):
     """Check the token with Instagram and remember it."""
     token = token.strip()
     cfg = {"token": token, "user_id": str(user_id).strip()}
@@ -72,19 +72,20 @@ def connect(token, user_id="", graph_base_override=""):
     if not cfg["user_id"]:
         raise SystemExit("Instagram didn't return an account id; paste your Instagram user id too.")
     cfg["username"] = me.get("username", "")
-    CONFIG.write_text(json.dumps(cfg))
-    os.chmod(CONFIG, 0o600)
-    return status()
+    path = Path(config or CONFIG)
+    path.write_text(json.dumps(cfg))
+    os.chmod(path, 0o600)
+    return status(path)
 
 
-def disconnect():
-    CONFIG.unlink(missing_ok=True)
-    return status()
+def disconnect(config=None):
+    Path(config or CONFIG).unlink(missing_ok=True)
+    return status(config)
 
 
-def post_reel(video, caption, cover_ms=0, share_to_feed=True):
+def post_reel(video, caption, cover_ms=0, share_to_feed=True, config=None):
     """Publish the MP4 as a Reel. Returns {"id", "permalink"}."""
-    cfg = load()
+    cfg = load(config)
     if not (cfg.get("token") and cfg.get("user_id")):
         raise SystemExit("Connect your Instagram account first.")
     token, uid = cfg["token"], cfg["user_id"]

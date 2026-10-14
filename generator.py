@@ -64,15 +64,22 @@ def broll_suggest(p: cs.Project, c, n=3):
     out.mkdir(exist_ok=True)
     for k, b in enumerate(cuts):
         cs.log(f"[broll] drawing image {k + 1}/{len(cuts)}...", 0.15 + 0.8 * k / max(1, len(cuts)))
-        b["file"] = draw_broll(b["prompt"], out / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png")
+        b["file"] = draw_broll(b["prompt"], out / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png", s.broll_style)
     comfy.free()
     c["broll"] = cuts
     p.save()
     return cuts
 
 
-def draw_broll(prompt, dest):
-    src = comfy.image(prompt + ", cinematic, photorealistic, vertical 9:16, no text", 1088, 1920, prefix="designer_studio/broll")
+BROLL_STYLES = {"cinematic": "cinematic photo, photorealistic, shallow depth of field",
+                "lifestyle": "bright natural lifestyle photo, airy, soft daylight",
+                "minimal": "minimalist clean photo, soft muted colors, lots of negative space",
+                "illustrated": "flat modern illustration, clean shapes, soft colors"}
+
+
+def draw_broll(prompt, dest, style="cinematic"):
+    src = comfy.image(f"{prompt}, {BROLL_STYLES.get(style, BROLL_STYLES['cinematic'])}, vertical 9:16, no text", 1088, 1920,
+                      prefix="designer_studio/broll")
     shutil.copy(src, dest)
     return str(dest)
 
@@ -82,7 +89,8 @@ def broll_redraw(p: cs.Project, c, k, prompt=None):
     if prompt:
         b["prompt"] = prompt
     cs.log("[broll] drawing a new image...", 0.2)
-    b["file"] = draw_broll(b["prompt"], p.dir / "studio" / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png")
+    b["file"] = draw_broll(b["prompt"], p.dir / "studio" / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png",
+                           studio.Settings_for(p, c).broll_style)
     comfy.free()
     p.save()
     return b
@@ -294,14 +302,16 @@ def make_video(sh: Short):
     return str(final)
 
 
-def make_project(sh: Short, root):
+def make_project(sh: Short, root, base=None, suffix=""):
     """Turn the AI video into a normal project (one clip covering it all), carrying over the script's
-    hook, caption and B-roll ideas."""
+    hook, caption and B-roll ideas. base: the user's default settings."""
     d = sh.data
-    s = settings()
+    s = cs.Settings.from_dict(base) if base else settings()
     s.language = d.get("language", "en")
     info = cs.probe(d["video"])
-    p = cs.create_project(d["video"], root, s, manual=[(0.0, info["duration"])])
+    p = cs.create_project(d["video"], root, s, manual=[(0.0, info["duration"])], suffix=suffix)
+    if d.get("owner"):
+        p.data["owner"] = d["owner"]
     c = p.clips[0]
     sc = d.get("script", {})
     c.update(title=sc.get("title") or c["title"], caption=sc.get("caption", ""), hashtags=sc.get("hashtags", []),
@@ -329,7 +339,7 @@ def broll_from_ideas(p: cs.Project, c):
     for k, (t, prompt) in enumerate(zip(slots, ideas)):
         cs.log(f"[broll] drawing image {k + 1}/{len(slots)}...", 0.1 + 0.85 * k / len(slots))
         cuts.append({"start": round(t, 2), "dur": 2.4, "prompt": prompt, "line": "", "on": True,
-                     "file": draw_broll(prompt, out / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png")})
+                     "file": draw_broll(prompt, out / f"broll_{c['id']}_{k}_{uuid.uuid4().hex[:6]}.png", s.broll_style)})
     comfy.free()
     c["broll"] = cuts
     p.save()

@@ -50,21 +50,21 @@ def install():
     return str(BIN)
 
 
-def connected():
+def connected(remote=REMOTE):
     exe = rclone()
     if not exe:
         return False
     out = subprocess.run([exe, "listremotes"], capture_output=True, text=True).stdout
-    return f"{REMOTE}:" in out.split()
+    return f"{remote}:" in out.split()
 
 
-def _run():
+def _run(remote):
     try:
         STATE.update(status="installing", url="", error="")
         exe = install()
         STATE["status"] = "starting"
-        subprocess.run([exe, "config", "delete", REMOTE], capture_output=True)
-        p = subprocess.Popen([exe, "config", "create", REMOTE, "drive", "scope=drive.readonly", "config_is_local=true"],
+        subprocess.run([exe, "config", "delete", remote], capture_output=True)
+        p = subprocess.Popen([exe, "config", "create", remote, "drive", "scope=drive.readonly", "config_is_local=true"],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         PROC["p"] = p
         deadline = time.time() + 600
@@ -76,7 +76,7 @@ def _run():
                 p.kill()
                 break
         code = p.wait()
-        if code == 0 and connected():
+        if code == 0 and connected(remote):
             STATE.update(status="connected", url="")
         else:
             STATE.update(status="error", error="Google sign-in didn't finish. Try again.")
@@ -84,31 +84,31 @@ def _run():
         STATE.update(status="error", error=f"Couldn't connect Google Drive ({str(e)[:120]}).")
 
 
-def start():
+def start(remote=REMOTE):
     """Begin connecting in the background; poll status()."""
     with _lock:
         if STATE["status"] in ("installing", "starting", "waiting") and time.time() - STATE["started"] < 600:
-            return status()
+            return status(remote)
         STATE["started"] = time.time()
-        threading.Thread(target=_run, daemon=True).start()
+        threading.Thread(target=_run, args=(remote,), daemon=True).start()
     time.sleep(1.5)                                  # usually enough for the sign-in link to appear
-    return status()
+    return status(remote)
 
 
-def status():
+def status(remote=REMOTE):
     s = dict(STATE)
     if s["status"] not in ("installing", "starting", "waiting"):
-        s["status"] = "connected" if connected() else ("error" if s["status"] == "error" else "idle")
-    s["remote"] = REMOTE
+        s["status"] = "connected" if connected(remote) else ("error" if s["status"] == "error" else "idle")
+    s["remote"] = remote
     return s
 
 
-def disconnect():
+def disconnect(remote=REMOTE):
     p = PROC.get("p")
     if p and p.poll() is None:                       # an unfinished sign-in
         p.kill()
     exe = rclone()
     if exe:
-        subprocess.run([exe, "config", "delete", REMOTE], capture_output=True)
+        subprocess.run([exe, "config", "delete", remote], capture_output=True)
     STATE.update(status="idle", url="", error="")
-    return status()
+    return status(remote)

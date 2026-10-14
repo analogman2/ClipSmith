@@ -137,6 +137,7 @@ class Settings:
     maxrate: str = "16M"
     scenes: bool = True              # reset framing at camera cuts, layout per scene
     look: str = "natural"            # color grade: see LOOKS
+    broll_style: str = "cinematic"   # AI B-roll images: cinematic | lifestyle | minimal | illustrated
     vision: bool = True              # a vision model looks at each scene (layout, burned-in subtitles)
     vision_model: str = "qwen3.5:9b"
 
@@ -561,7 +562,8 @@ def pick_clips(sents, s: Settings, language, context=""):
 
 # ---------------------------------------------------------------- remember & learn: creator profile + past results
 
-PROFILE_FILE = HERE / "profile.json"
+PROFILE_FILE = HERE / "profile.json"     # the web app points this at the signed-in user's profile
+OWNER = None                              # and limits "what worked before" to that user's projects
 PROFILE_FIELDS = {"niche": "", "audience": "", "tone": "", "themes": "", "avoid": "", "goals": ""}
 
 
@@ -582,13 +584,16 @@ def engagement_rate(m):
     return inter / v if v > 0 else 0.0
 
 
-def posted_clips(root):
-    """Every clip (in every project under root) that has performance numbers entered."""
+def posted_clips(root, owner=None):
+    """Every clip (in every project under root, of one owner when given) that has performance numbers entered."""
+    owner = owner or OWNER
     out = []
     for f in Path(root).glob("*/project.json"):
         try:
             d = json.loads(f.read_text())
         except (OSError, json.JSONDecodeError):
+            continue
+        if owner and d.get("owner") not in (owner, None):
             continue
         for c in d.get("clips", []):
             for m in c.get("metrics", []):
@@ -631,9 +636,9 @@ next videos (hooks, topics, length, format, timing). Keep it under 250 words. Us
 Base everything on the numbers; say when the data is too thin to tell."""
 
 
-def insights(root, s: Settings = None):
+def insights(root, s: Settings = None, owner=None):
     """Breakdowns of performance (and optionally an AI summary)."""
-    posted = posted_clips(root)
+    posted = posted_clips(root, owner)
 
     def group(keyf):
         g = {}
@@ -1712,7 +1717,7 @@ class Project:
         return c
 
 
-def create_project(source, out_root, s: Settings, manual=None, reselect=False, retranscribe=False):
+def create_project(source, out_root, s: Settings, manual=None, reselect=False, retranscribe=False, suffix=""):
     """Download/probe/transcribe/pick. Returns a saved Project (not rendered yet)."""
     out_root = Path(out_root)
     if str(source).startswith("rclone:"):
@@ -1725,7 +1730,7 @@ def create_project(source, out_root, s: Settings, manual=None, reselect=False, r
     if not FACE_MODEL.exists():
         raise SystemExit("Run ./setup.sh first (downloads the face model and caption font).")
     info = probe(video)
-    p = Project(out_root / slug(video.stem))
+    p = Project(out_root / (slug(video.stem) + suffix))
     p.work.mkdir(parents=True, exist_ok=True)
     log(f"{video.name}: {info['w']}x{info['h']} @ {info['fps']:.2f} fps, {fmt_ts(info['duration'])} long", 0.01)
 

@@ -446,12 +446,43 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 .gports img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;box-shadow:0 0 0 3px transparent;transition:box-shadow .15s}
 .gports img.on{box-shadow:0 0 0 3px var(--accent)}
 .gready{display:flex;gap:16px;align-items:center;background:var(--field);border-radius:14px;padding:14px} .gready img{width:110px;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
-@media (max-width:900px){.gbodyw{grid-template-columns:1fr} #gside{display:none} #gmain{padding:20px 16px}}
+@media (max-width:900px){.gbodyw{grid-template-columns:1fr} #gside,#oside{display:none} #gmain,#omain{padding:20px 16px}
+  .oplat{grid-template-columns:1fr 1fr;} .oplat .chip{grid-column:1/-1;justify-self:start} .orow{flex-wrap:wrap} .grid2,.grid3{grid-template-columns:1fr}}
+#omain{overflow:auto;padding:34px 30px 40px}
 .drv code{background:var(--field2);border-radius:4px;padding:0 4px;font-size:11.5px}
 .dcon{display:flex;gap:14px;align-items:center;justify-content:space-between;background:var(--field);border-radius:12px;padding:12px 14px;margin-top:8px}
 .dcon p{margin:3px 0 0;font-size:12px} .dcon .btn{flex:none}
 .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--field2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
 @keyframes spin{to{transform:rotate(360deg)}}
+#onb{position:fixed;inset:0;z-index:85;background:var(--bg);display:none;flex-direction:column} #onb.open{display:flex;animation:fadeIn .3s var(--ease)}
+.orow{display:flex;gap:16px;align-items:flex-end}
+.ophoto{width:84px;height:84px;border-radius:50%;background:var(--field);display:grid;place-items:center;overflow:hidden;position:relative;flex:none;cursor:default;color:var(--text2)}
+.ophoto img{width:100%;height:100%;object-fit:cover} .ophoto small{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:10px;background:rgba(0,0,0,.45);color:#fff;padding:2px}
+.oplat{display:grid;grid-template-columns:170px 1fr auto;gap:10px;align-items:center;margin:8px 0}
+.obox{background:var(--field);border-radius:14px;padding:12px}
+.oimg{display:grid;place-items:center;height:110px;border-radius:10px;background:var(--elev2);margin-top:8px;overflow:hidden;cursor:default;text-align:center;color:var(--text2)}
+.oimg.tall{height:180px} .oimg img{max-width:100%;max-height:100%;object-fit:contain} .oimg small{display:block;font-size:11px;margin-top:4px}
+.osum{display:grid;gap:10px} .osum>div{background:var(--field);border-radius:12px;padding:12px 14px} .osum p{margin:4px 0 0}
+#splash .who{color:#fff;opacity:.8;margin:18px 0 4px;letter-spacing:.02em;text-transform:none;font-size:16px;animation:rise 1.1s .5s var(--sp) both}
+#splash .people{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+#splash .person{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;opacity:0;animation:illuminate2 2s var(--d,2s) var(--ease) forwards;font-size:14px;font-weight:500;position:relative}
+#splash .person .av{width:84px;height:84px;font-size:32px;box-shadow:0 0 0 1px rgba(255,255,255,.18);transition:box-shadow .3s,transform .25s var(--sp)}
+#splash .person:hover .av{box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 34px rgba(255,255,255,.22);transform:translateY(-2px)}
+#splash .person small{position:absolute;top:58px;right:-2px;font-size:13px}
+#splash .person.new .av{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35);font-weight:300}
+@keyframes illuminate2{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#splash .pin{display:flex;gap:10px;align-items:center;margin-top:22px;color:#fff;animation:rise .5s var(--sp) both}
+#splash .pin input{width:150px;background:rgba(255,255,255,.08);color:#fff;border:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);text-align:center;letter-spacing:.3em;font-size:18px}
+.choice-btn{background:#fff;color:#000;border-radius:9px;height:34px;padding:0 16px;font-weight:600}
+#splash .whoami{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.6);margin-top:22px;font-size:13px;animation:rise 1s .3s var(--sp) both}
+#splash .whoami a{color:rgba(255,255,255,.85)}
+.av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#5e5ce6,#bf5af2);color:#fff;display:inline-grid;place-items:center;font-weight:600;object-fit:cover;flex:none}
+.av.sm{width:24px;height:24px;font-size:11px} .av.xs{width:22px;height:22px;font-size:11px} .av.lg{width:56px;height:56px;font-size:22px}
+.tb .ib.acct{padding:0;min-width:34px}
+.acct{display:flex;gap:14px;align-items:center;margin:4px 0 14px}
+.acctlist{display:grid;gap:4px} .acctlist button{display:flex;gap:12px;align-items:center;text-align:left;padding:10px 12px;border-radius:10px;background:var(--field);color:var(--text)}
+.acctlist button:hover{background:var(--field2)} .acctlist small{display:block;color:var(--text2);font-size:11.5px}
+.acts .act{display:flex;gap:10px;align-items:baseline;padding:6px 2px;border-bottom:1px solid var(--hair);font-size:12.5px} .acts .twhen{width:64px;flex:none}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -548,16 +579,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   </svg>
   <h1>Designer Studio</h1>
   <p>Long videos into shorts</p>
-  <div class="choices">
-    <button class="choice" onclick="enterGenerator()" style="--d:2.1s">
-      <span class="ct">Clip Generator</span>
-      <span class="cs">Guided, step by step: from your video (or no video at all) to a finished short</span>
-    </button>
-    <button class="choice" onclick="enterStudio()" style="--d:2.6s">
-      <span class="ct">Clip Studio</span>
-      <span class="cs">The full editor: every clip, the timeline and all the tools</span>
-    </button>
-  </div>
+  <div id="homeArea"></div>
 </div>
 
 <div id="app">
@@ -578,6 +600,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
       <button class="ib on" title="Show/hide timeline" onclick="lay('notl',this)"><svg class="i"><use href="#i-lay-tl"/></svg></button>
       <button class="ib on" title="Show/hide inspector & effects" onclick="lay('noinsp',this)"><svg class="i"><use href="#i-lay-insp"/></svg></button>
     </div>
+    <button class="ib acct" id="acctB" title="Account" onclick="openAccount()"></button>
     <button class="ib" id="themeB" title="Appearance: automatic" onclick="cycleTheme()"><svg class="i"><use href="#i-theme"/></svg></button>
     <button class="ib" title="Download the selected clip" onclick="shareSel()"><svg class="i"><use href="#i-share"/></svg></button>
   </div>
@@ -651,6 +674,9 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 <dialog id="dlg"><div class="sheet"><div class="sh" id="dlgT"></div><div class="sb" id="dlgB"></div>
   <div class="sf"><button class="btn ghost" onclick="dlg.close()" id="dlgC">Cancel</button><button class="btn pri" id="dlgGo">OK</button></div></div></dialog>
 
+<div id="onb"><div class="ghead"><button class="x" onclick="closeSetup()" title="Close"><svg class="i s"><use href="#i-x"/></svg></button><h1><svg class="logo"><use href="#i-pear"/></svg>Set up Designer Studio</h1><span style="width:30px"></span></div>
+  <div class="gbodyw"><aside id="oside"></aside><main id="omain"></main></div><div class="gfoot" id="ofoot"></div></div>
+
 <div id="gen"><div class="ghead"><button class="x" onclick="closeGenerator();showSplash()" title="Back to start"><svg class="i s"><use href="#i-x"/></svg></button><h1><svg class="logo"><use href="#i-pear"/></svg>Clip Generator</h1>
   <button class="btn ghost" onclick="closeGenerator()">Open Clip Studio</button></div>
   <div class="gbodyw"><aside id="gside"></aside><main id="gmain"></main></div><div class="gfoot" id="gfoot"></div></div>
@@ -685,6 +711,7 @@ function toast(m) { const d = document.createElement('div'); d.className = 'toas
 async function api(path, opts = {}) {
   const r = await fetch(path, {headers: {'Content-Type': 'application/json'}, ...opts,
     body: opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body});
+  if (r.status === 401 && !path.startsWith('/api/me')) { ME = null; if (typeof loadMe === 'function') { loadMe(); showSplash(); } throw new Error('signed out'); }
   if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m } catch {} toast(m); throw new Error(m); }
   return r.json();
 }
@@ -1181,7 +1208,8 @@ function sheet(title, body, go, goLabel = 'OK') {
 }
 function readForm(root) { const o = {}; root.querySelectorAll('[data-k]').forEach(i => { o[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.type === 'number' ? +i.value : i.value; }); return o; }
 const SRCS = new Set(); let LIB = [], SRC_TAB = 'lib';
-async function openNew(tab = 'lib') {
+async function openNew(tab) {
+  tab = tab || (ME && ME.prefs && ME.prefs.import.default_source) || 'lib';
   SRC_TAB = tab; SRCS.clear(); const d = META.defaults;
   const sel = (k, list) => `<select data-k="${k}">${list.map(x => `<option ${x === d[k] ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
   sheet('Find clips in a video', `<div class="imp"><div class="src">${[['lib', 'film', 'My videos'], ['drive', 'drive', 'Google Drive'], ['up', 'import', 'Upload'], ['url', 'link', 'Links']].map(([k, i, n]) => `<div data-t="${k}" class="${k === tab ? 'on' : ''}" onclick="srcTab('${k}')">${ico(i)}${n}</div>`).join('')}</div>
@@ -1525,8 +1553,9 @@ const LOOK_NAMES = {natural: 'Natural', bright: 'Bright', warm: 'Warm', cool: 'C
 const LOOK_CSS = {natural: 'none', bright: 'brightness(1.08) saturate(1.06)', warm: 'sepia(.18) saturate(1.12) hue-rotate(-6deg)', cool: 'saturate(.95) hue-rotate(8deg) brightness(1.02)',
   vivid: 'saturate(1.35) contrast(1.06)', cinematic: 'contrast(1.12) saturate(.88) sepia(.08)', moody: 'brightness(.9) contrast(1.15) saturate(.78)', bw: 'grayscale(1) contrast(1.15)'};
 let G = null;
-function freshG(path = 'video') { return {path, step: 0, src: null, srcName: '', srcTab: 'lib', slug: null, sel: [], style: {captions: 'bold', look: 'natural', aspect: '9:16'},
-  dub: '', broll: true, sid: null, short: null, prompt: '', count: 3, jobs: [], busy: null, lookWhy: '', posted: {}}; }
+function freshG(path = 'video') { const d = (META && META.defaults) || {}; return {path, step: 0, src: null, srcName: '', srcTab: (ME && ME.prefs && ME.prefs.import.default_source) || 'lib', slug: null, sel: [],
+  style: {captions: d.captions || 'bold', look: d.look || 'natural', aspect: d.aspect || '9:16'},
+  dub: '', broll: true, sid: null, short: null, prompt: '', count: d.count || 3, jobs: [], busy: null, lookWhy: '', posted: {}}; }
 function openGenerator() { if (!G) G = freshG(); $('#gen').classList.add('open'); drawGen(); }
 function closeGenerator() { $('#gen').classList.remove('open'); }
 const gStepName = () => GSTEPS[G.path][G.step];
@@ -1804,6 +1833,252 @@ async function gAnimate() {
   G.slug = (j.result && j.result.slug) || j.project; await gLoad(); G.sel = [PROJ.clips[0].id]; gNext();
 }
 
+// ------------------------------------------------ users: home screen, account, activity
+let ME = null;            // {user, users_exist, prefs, profile}
+let USERS = [];
+const initial = n => esc((n || '?').trim()[0].toUpperCase());
+const avatar = (u, cls = '') => u.photo ? `<img class="av ${cls}" src="/api/users/${u.id}/photo?v=${Date.now() % 1e6}" alt="">` : `<span class="av ${cls}">${initial(u.name)}</span>`;
+async function loadMe() { ME = await api('/api/me'); USERS = await api('/api/users'); drawHome(); drawAccountBtn(); return ME; }
+function drawHome() {
+  const box = $('#homeArea'); if (!box) return;
+  const signed = ME && ME.user;
+  if (signed) {
+    box.innerHTML = `<div class="choices">
+      <button class="choice" onclick="enterGenerator()" style="--d:${box.dataset.d || '2.1s'}"><span class="ct">Clip Generator</span><span class="cs">Guided, step by step: from your video (or no video at all) to a finished short</span></button>
+      <button class="choice" onclick="enterStudio()" style="--d:${box.dataset.d2 || '2.6s'}"><span class="ct">Clip Studio</span><span class="cs">The full editor: every clip, the timeline and all the tools</span></button></div>
+      <div class="whoami">${avatar(ME.user, 'sm')}<span>${esc(ME.user.name)}</span> · <a href="#" onclick="switchUser();return false">Switch user</a> · <a href="#" onclick="openSetup(true);return false">Settings</a></div>`;
+  } else if (USERS.length) {
+    box.innerHTML = `<p class="who">Who’s creating?</p><div class="people">${USERS.map(u => `<button class="person" onclick="pickUser('${u.id}')" style="--d:${box.dataset.d || '2.1s'}">${avatar(u)}<span>${esc(u.name)}</span>${u.has_passcode ? '<small>🔒</small>' : ''}</button>`).join('')}
+      <button class="person new" onclick="openSetup(false)" style="--d:${box.dataset.d2 || '2.6s'}"><span class="av">+</span><span>New user</span></button></div>
+      <div id="pinbox"></div>`;
+  } else {
+    box.innerHTML = `<div class="choices"><button class="choice" onclick="openSetup(false)" style="--d:${box.dataset.d || '2.1s'}"><span class="ct">Create your profile</span>
+      <span class="cs">A few quick choices (your name, socials, style and where your videos are) so everything after is set up for you</span></button></div>`;
+  }
+}
+function pickUser(id) {
+  const u = USERS.find(x => x.id === id);
+  if (!u.has_passcode) return doLogin(id, '');
+  $('#pinbox').innerHTML = `<div class="pin"><span>Passcode for ${esc(u.name)}</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"
+    onkeydown="if(event.key==='Enter')doLogin('${id}',this.value)"><button class="choice-btn" onclick="doLogin('${id}',$('#pin').value)">Sign in</button></div>`;
+  $('#pin').focus();
+}
+async function doLogin(id, code) {
+  try { await api('/api/login', {method: 'POST', body: {id, passcode: code}}); } catch { const p = $('#pin'); if (p) { p.value = ''; p.focus(); } return; }
+  await afterSignIn();
+}
+async function afterSignIn() {
+  const box = $('#homeArea'); box.dataset.d = '.1s'; box.dataset.d2 = '.35s';
+  await loadMe(); META = await api('/api/meta'); CUR = null; PROJ = null; DRV.src = null; await poll(); drawTree();
+  if (STATE.projects[0]) openProject(STATE.projects[0].slug); else { $('#bgrid').innerHTML = ''; }
+}
+async function switchUser() { await api('/api/logout', {method: 'POST'}); ME = null; G = null; const box = $('#homeArea'); box.dataset.d = '.1s'; box.dataset.d2 = '.3s'; await loadMe(); showSplash(); }
+function drawAccountBtn() {
+  const b = $('#acctB'); if (!b) return;
+  b.innerHTML = ME && ME.user ? avatar(ME.user, 'xs') : ico('person', '');
+  b.title = ME && ME.user ? `${ME.user.name}: account` : 'Account';
+}
+function openAccount() {
+  if (!ME || !ME.user) return showSplash();
+  sheet('Account', `<div class="acct">${avatar(ME.user, 'lg')}<div><b style="font-size:16px">${esc(ME.user.name)}</b><div class="mut">${ME.user.admin ? 'Admin' : 'Member'}${ME.user.has_passcode ? ' · passcode on' : ''}</div></div></div>
+    <div class="acctlist">
+      <button onclick="dlg.close();openSetup(true)">${ico('gear')}<span>Settings<small>Name, socials, content, style, brand, import</small></span></button>
+      <button onclick="openActivity(false)">${ico('index')}<span>My activity<small>Everything you’ve done in Designer Studio</small></span></button>
+      ${ME.user.admin ? `<button onclick="openActivity(true)">${ico('chart')}<span>Everyone’s activity<small>All users</small></span></button>
+      <button onclick="openUsers()">${ico('person')}<span>Manage users<small>${USERS.length} user${USERS.length === 1 ? '' : 's'}</small></span></button>` : ''}
+      <button onclick="dlg.close();switchUser()">${ico('left')}<span>Switch user / sign out</span></button></div>`, null);
+}
+async function openActivity(everyone) {
+  const rows = await api('/api/activity' + (everyone ? '?everyone=true' : ''));
+  const day = t => new Date(t * 1000).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
+  let last = '';
+  sheet(everyone ? 'Everyone’s activity' : 'My activity', rows.length ? `<div class="acts">${rows.map(r => { const d = day(r.t), hdr = d !== last ? `<div class="tsec">${d}</div>` : ''; last = d;
+    return `${hdr}<div class="act"><span class="twhen">${new Date(r.t * 1000).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}</span>${everyone ? `<b>${esc(r.name)}</b>` : ''}<span>${esc(r.action[0].toUpperCase() + r.action.slice(1))}${r.detail ? ` <span class="mut">· ${esc(r.detail)}</span>` : ''}</span></div>`; }).join('')}</div>`
+    : '<p class="mut">Nothing yet.</p>', null);
+}
+async function openUsers() {
+  USERS = await api('/api/users');
+  sheet('Manage users', `<div class="tlist">${USERS.map(u => `<div class="tdone" style="align-items:center">${avatar(u, 'sm')}<div class="grow"><div class="tttl">${esc(u.name)}</div>
+    <div class="tsub">${u.admin ? 'Admin' : 'Member'}${u.has_passcode ? ' · passcode' : ''} · since ${new Date(u.created * 1000).toLocaleDateString()}</div></div>
+    ${u.id !== ME.user.id ? `<button class="btn danger" onclick="removeUser('${u.id}')">Remove</button>` : '<span class="mut">You</span>'}</div>`).join('')}</div>
+    <p class="mut" style="margin-top:10px">Removing a user deletes their settings and connections. Their projects stay on this computer.</p>`, null);
+}
+async function removeUser(id) { const u = USERS.find(x => x.id === id); if (!confirm(`Remove ${u.name}?`)) return; await api('/api/users/' + id, {method: 'DELETE'}); openUsers(); }
+
+// ------------------------------------------------ new-user setup (also Settings later)
+const OSTEPS = ['You', 'Socials', 'Your content', 'Style', 'Brand & images', 'Import', 'Done'];
+let O = null;
+const TONES = ['Warm', 'Direct', 'Funny', 'Expert', 'Calm', 'Bold', 'Inspiring', 'Provocative'];
+const TIMES = [['morning', 'Morning'], ['midday', 'Midday'], ['evening', 'Evening'], ['night', 'Night']];
+const PLATS = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', 'YouTube Shorts']];
+const BSTYLES = [['cinematic', 'Cinematic', 'Moody, film-like photos'], ['lifestyle', 'Lifestyle', 'Bright, airy, natural light'], ['minimal', 'Minimal', 'Clean, calm, soft colors'], ['illustrated', 'Illustrated', 'Flat modern illustrations']];
+async function openSetup(edit) {
+  const base = await api('/api/meta');
+  const pr = (edit && ME && ME.prefs) || base.prefs;
+  O = {edit, step: 0, name: edit ? ME.user.name : '', passcode: '', passcode2: '', created: edit,
+    settings: {...base.defaults}, socials: JSON.parse(JSON.stringify(pr.socials)), imp: JSON.parse(JSON.stringify(pr.import)), images: JSON.parse(JSON.stringify(pr.images)),
+    profile: edit && ME.profile ? {...ME.profile} : {niche: '', audience: '', tone: '', themes: '', goals: '', avoid: ''}};
+  hideSplash(); $('#onb').classList.add('open'); drawSetup();
+}
+function closeSetup() { $('#onb').classList.remove('open'); if (!(ME && ME.user)) showSplash(); }
+function drawSetup() {
+  $('#oside').innerHTML = `<ol class="gsteps">${OSTEPS.map((n, i) => `<li class="${i < O.step ? 'done' : i === O.step ? 'on' : ''}" ${O.created && i !== O.step ? `onclick="oGo(${i})" style="cursor:default"` : ''}><span class="gn">${i < O.step ? '✓' : i + 1}</span>${n}</li>`).join('')}</ol>`;
+  const f = [oYou, oSocials, oContent, oStyle, oBrand, oImport, oDone][O.step]; f();
+}
+function oFrame(title, sub, body, next = 'Continue', nextFn = 'oNext()') {
+  $('#omain').innerHTML = `<div class="gwrap"><h2>${title}</h2>${sub ? `<p class="gsub">${sub}</p>` : ''}<div class="gbody">${body}</div></div>`;
+  $('#ofoot').innerHTML = `<button class="btn ghost" onclick="oBack()" ${O.step ? '' : 'disabled'}>Back</button><span class="grow"></span>
+    ${O.created && O.step < OSTEPS.length - 1 ? `<button class="btn ghost" onclick="oSave(true)">Save & close</button>` : ''}
+    <button class="btn pri gnext" onclick="${nextFn}">${next}</button>`;
+}
+async function oGo(i) { if (await oCollect()) { O.step = i; drawSetup(); } }
+async function oBack() { await oCollect(true); O.step--; drawSetup(); }
+async function oNext() { if (await oCollect()) { O.step++; drawSetup(); } }
+const v = id => ($('#' + id) || {}).value;
+async function oCollect(soft) {   // read the step's fields; create the user on leaving step 1; save as we go
+  const st = OSTEPS[O.step];
+  if (st === 'You') {
+    O.name = v('o-name').trim(); O.passcode = v('o-pin').trim(); O.passcode2 = v('o-pin2').trim();
+    if (soft) return true;
+    if (!O.name) { toast('Enter your name'); return false; }
+    if (O.passcode && !/^\d{4,8}$/.test(O.passcode)) { toast('A passcode is 4 to 8 digits'); return false; }
+    if (O.passcode !== O.passcode2) { toast('The passcodes don’t match'); return false; }
+    try {
+      if (!O.created) { await api('/api/users', {method: 'POST', body: {name: O.name, passcode: O.passcode}}); O.created = true; await loadMe(); }
+      else { const b = {name: O.name}; if (O.passcode) b.passcode = O.passcode; if ($('#o-nopin') && $('#o-nopin').checked) b.passcode = ''; await api('/api/me', {method: 'PUT', body: b}); }
+    } catch { return false; }
+    if (O.photo) { const fd = new FormData(); fd.append('file', O.photo); await api('/api/me/upload/photo', {method: 'POST', body: fd, headers: {}}); O.photo = null; await loadMe(); }
+    return true;
+  }
+  if (st === 'Socials') {
+    O.socials.platforms = PLATS.map(([k]) => k).filter(k => $('#o-p-' + k).checked);
+    PLATS.forEach(([k]) => { O.socials.handles[k] = (v('o-h-' + k) || '').trim().replace(/^@/, ''); });
+    O.socials.per_week = +v('o-pw'); O.socials.times = TIMES.map(([k]) => k).filter(k => $('#o-t-' + k).classList.contains('on'));
+    if (!O.socials.platforms.includes(O.socials.primary)) O.socials.primary = O.socials.platforms[0] || 'instagram';
+  }
+  if (st === 'Your content') {
+    for (const k of ['niche', 'audience', 'themes', 'goals', 'avoid']) O.profile[k] = v('o-' + k).trim();
+    O.profile.tone = [...document.querySelectorAll('#o-tones .chip.on')].map(x => x.textContent).join(', ');
+    O.settings.language = v('o-lang');
+  }
+  if (st === 'Style') {
+    for (const k of ['highlight', 'emphasis']) O.settings[k] = v('o-' + k);
+    for (const k of ['hook', 'zoom', 'fillers', 'progress_bar']) O.settings[k] = $('#o-' + k).checked;
+    O.settings.count = +v('o-count'); const [mn, mx] = v('o-len').split('-').map(Number); O.settings.min = mn; O.settings.max = mx;
+  }
+  if (st === 'Brand & images') { O.settings.logo_pos = v('o-logopos'); O.settings.music = v('o-music').trim(); O.settings.broll_style = O.images.broll_style; }
+  if (st === 'Import') {}
+  if (O.created && st !== 'You') {
+    const keep = ['captions', 'look', 'aspect', 'highlight', 'emphasis', 'hook', 'zoom', 'fillers', 'progress_bar', 'count', 'min', 'max', 'language', 'logo_pos', 'music', 'broll_style'];
+    await api('/api/me', {method: 'PUT', body: {prefs: {settings: Object.fromEntries(keep.map(k => [k, O.settings[k]])), socials: O.socials, import: {default_source: O.imp.default_source},
+      images: {broll_style: O.images.broll_style}}, profile: O.profile}});
+  }
+  return true;
+}
+async function oSave() { if (await oCollect()) { await loadMe(); META = await api('/api/meta'); toast('Settings saved'); $('#onb').classList.remove('open'); } }
+function oYou() {
+  oFrame(O.edit ? 'You' : 'Welcome to Designer Studio', O.edit ? '' : 'Let’s set things up once, so making shorts later takes as few choices as possible. About two minutes.',
+    `<div class="orow"><label class="ophoto">${O.photoUrl || (O.edit && ME.user.photo) ? `<img src="${O.photoUrl || `/api/users/${ME.user.id}/photo?v=${Date.now() % 1e6}`}" alt="">` : `<span>${ico('person', 'l')}</span>`}<input type="file" accept="image/*" hidden onchange="O.photo=this.files[0];O.photoUrl=URL.createObjectURL(this.files[0]);oYou()"><small>Photo</small></label>
+      <div class="grow"><label class="f" style="margin-top:0">Your name</label><input id="o-name" value="${esc(O.name)}" placeholder="e.g. Amanda" autofocus></div></div>
+    <label class="f">Passcode (optional)</label><div class="grid2"><input id="o-pin" type="password" inputmode="numeric" maxlength="8" placeholder="${O.edit && ME.user.has_passcode ? 'New passcode (leave empty to keep)' : '4–8 digits'}" value="${esc(O.passcode)}">
+      <input id="o-pin2" type="password" inputmode="numeric" maxlength="8" placeholder="Repeat it" value="${esc(O.passcode2)}"></div>
+    ${O.edit && ME.user.has_passcode ? `<label class="gswitch sm" style="margin-top:8px"><input type="checkbox" id="o-nopin"> Remove my passcode</label>` : ''}
+    <p class="mut" style="font-size:12px">Others using this computer can’t open your projects. A passcode keeps them from signing in as you.</p>`);
+}
+function oSocials() {
+  const s = O.socials;
+  oFrame('Your socials', 'Where you post and how often. Captions, schedules and exports follow this.',
+    `${PLATS.map(([k, n]) => `<div class="oplat"><label class="gswitch sm"><input type="checkbox" id="o-p-${k}" ${s.platforms.includes(k) ? 'checked' : ''}> ${n}</label>
+      <input id="o-h-${k}" placeholder="@handle" value="${esc(s.handles[k] || '')}"><button class="chip ${s.primary === k ? 'on' : ''}" onclick="O.socials.primary='${k}';oCollect(true).then(oSocials)">${s.primary === k ? 'Main' : 'Make main'}</button></div>`).join('')}
+    <div class="grid2" style="margin-top:12px"><div><label class="f">Posts per week</label><select id="o-pw">${[1, 2, 3, 4, 5, 7, 10, 14].map(n => `<option ${n === +s.per_week ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div><label class="f">Best times for you</label><div class="hooks" style="flex-direction:row;margin:0">${TIMES.map(([k, n]) => `<button class="chip ${s.times.includes(k) ? 'on' : ''}" id="o-t-${k}" onclick="this.classList.toggle('on')">${n}</button>`).join('')}</div></div></div>
+    <div class="sect"><span class="cap">Post to Instagram from Designer Studio (optional)</span><div id="o-ig" class="mut" style="margin-top:6px">Checking…</div></div>`);
+  api('/api/instagram').then(ig => { const el = $('#o-ig'); if (!el) return;
+    el.innerHTML = ig.connected ? `Connected as @${esc(ig.username)}.` : O.created ? `<div class="grid2"><input id="igtok" type="password" placeholder="Instagram access token" autocomplete="off"><input id="iguid" placeholder="Instagram user ID (optional)"></div>
+      <div class="actions"><button class="btn" onclick="oIg()">Connect</button><span class="mut" style="align-self:center;font-size:11.5px">From Meta’s developer dashboard. You can also do this later when you share.</span></div>` : 'You can connect it when you share your first short.'; });
+}
+async function oIg() { const token = v('igtok').trim(); if (!token) return toast('Paste your access token'); try { const r = await api('/api/instagram/connect', {method: 'POST', body: {token, user_id: v('iguid').trim()}}); toast('Connected as @' + r.username); } catch { return; } await oCollect(true); oSocials(); }
+function oContent() {
+  const p = O.profile, tones = (p.tone || '').split(',').map(x => x.trim().toLowerCase());
+  oFrame('Your content', 'The AI reads this every time it picks moments, writes hooks and captions.',
+    `<label class="f">What do you make?</label><textarea id="o-niche" rows="2" placeholder="e.g. Psychology tips for therapists who want clients from Instagram">${esc(p.niche)}</textarea>
+     <div class="grid2"><div><label class="f">Who watches?</label><input id="o-audience" value="${esc(p.audience)}" placeholder="e.g. new therapists, 25–40"></div>
+       <div><label class="f">Videos are in</label><select id="o-lang"><option value="">Detect automatically</option>${Object.entries(META.dub_langs || {}).map(([k, n]) => `<option value="${k}" ${k === O.settings.language ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+     <label class="f">Your tone</label><div class="hooks" id="o-tones" style="flex-direction:row;flex-wrap:wrap">${TONES.map(t => `<button class="chip ${tones.includes(t.toLowerCase()) ? 'on' : ''}" onclick="this.classList.toggle('on')">${t}</button>`).join('')}</div>
+     <div class="grid2"><div><label class="f">Themes to favor</label><input id="o-themes" value="${esc(p.themes)}" placeholder="topics you want to be known for"></div>
+       <div><label class="f">Goals</label><input id="o-goals" value="${esc(p.goals)}" placeholder="followers, saves, DMs, sales…"></div></div>
+     <label class="f">Never clip</label><input id="o-avoid" value="${esc(p.avoid)}" placeholder="topics, words or moments to skip">`);
+}
+function oStyle() {
+  const s = O.settings, sample = 'background:linear-gradient(160deg,#556270,#9a8478 60%,#2c2c34)';
+  oFrame('Your style', 'How your shorts look by default. You can still change any clip later.',
+    `<label class="f">Captions</label><div class="gtiles">${META.captions.map(x => `<div class="fxt ${s.captions === x ? 'on' : ''}" onclick="O.settings.captions='${x}';oCollect(true).then(oStyle)"><div class="pv" style="${sample}">${fxPreview(x)}</div><div class="nm">${x === 'none' ? 'No captions' : x[0].toUpperCase() + x.slice(1)}</div></div>`).join('')}</div>
+     <label class="f" style="margin-top:12px">Color</label><div class="gtiles">${Object.keys(LOOK_NAMES).map(x => `<div class="fxt ${s.look === x ? 'on' : ''}" onclick="O.settings.look='${x}';oCollect(true).then(oStyle)"><div class="pv" style="${sample};filter:${LOOK_CSS[x]}"></div><div class="nm">${LOOK_NAMES[x]}</div></div>`).join('')}</div>
+     <div class="grid3" style="margin-top:12px"><div><label class="f">Format</label><select onchange="O.settings.aspect=this.value">${[['9:16', 'Reels · Shorts 9:16'], ['4:5', 'Feed 4:5'], ['1:1', 'Square 1:1']].map(([k, n]) => `<option value="${k}" ${s.aspect === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+       <div><label class="f">Clip length</label><select id="o-len">${[['15-30', '15–30 s'], ['20-45', '20–45 s'], ['20-60', '20–60 s'], ['30-90', '30–90 s']].map(([k, n]) => `<option value="${k}" ${k === `${s.min}-${s.max}` ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+       <div><label class="f">Moments per video</label><select id="o-count">${[1, 2, 3, 5, 8].map(n => `<option ${n === +s.count ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+     <div class="grid3"><div><label class="f">Highlight color</label><input type="color" id="o-highlight" value="${s.highlight}"></div><div><label class="f">Keyword color</label><input type="color" id="o-emphasis" value="${s.emphasis}"></div></div>
+     <div class="checks">${[['hook', 'Hook title'], ['zoom', 'Zoom punch-ins'], ['fillers', 'Cut um/uh'], ['progress_bar', 'Progress bar']].map(([k, n]) => `<label><input type="checkbox" id="o-${k}" ${s[k] ? 'checked' : ''}> ${n}</label>`).join('')}</div>`);
+}
+function oBrand() {
+  const s = O.settings, im = O.images;
+  oFrame('Brand & images', 'Your logo, your face for AI-presented shorts, and the look of AI-made B-roll.',
+    `<div class="grid2"><div class="obox"><span class="cap">Logo</span><label class="oimg">${s.logo ? `<img src="/api/me/image/logo?v=${Date.now() % 1e6}" alt="">` : `<span>${ico('import', 'l')}<small>PNG with transparency</small></span>`}<input type="file" accept="image/png,image/*" hidden onchange="oUpload('logo',this.files[0])"></label>
+        <label class="f">Position</label><select id="o-logopos">${['top-right', 'top-left', 'bottom-right', 'bottom-left'].map(x => `<option ${x === s.logo_pos ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+      <div class="obox"><span class="cap">Your photo for AI-presented shorts</span><label class="oimg tall">${im.presenter ? `<img src="/api/me/image/presenter?v=${Date.now() % 1e6}" alt="">` : `<span>${ico('person', 'l')}<small>A clear, front-facing photo</small></span>`}<input type="file" accept="image/*" hidden onchange="oUpload('presenter',this.files[0])"></label>
+        <p class="mut" style="font-size:11.5px">Used as the presenter when you make a short with no video. Optional.</p></div></div>
+     <label class="f" style="margin-top:14px">AI B-roll style</label><div class="gopts" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">${BSTYLES.map(([k, n, d]) => `<label class="gopt ${im.broll_style === k ? 'on' : ''}"><input type="radio" name="bst" ${im.broll_style === k ? 'checked' : ''} onchange="O.images.broll_style='${k}';oCollect(true).then(oBrand)"><b>${n}</b><span class="mut">${d}</span></label>`).join('')}</div>
+     <label class="f" style="margin-top:14px">Background music folder (optional)</label><input id="o-music" value="${esc(s.music || '')}" placeholder="e.g. ~/Music/Shorts — a track is picked per short and ducked under your voice">`);
+}
+async function oUpload(kind, f) {
+  if (!f) return; await oCollect(true);
+  const fd = new FormData(); fd.append('file', f);
+  try { ME = await api('/api/me/upload/' + kind, {method: 'POST', body: fd, headers: {}}); } catch { return; }
+  if (kind === 'logo') O.settings.logo = ME.prefs.settings.logo; else O.images.presenter = ME.prefs.images.presenter;
+  oBrand();
+}
+function oImport() {
+  oFrame('Your videos', 'Where your videos usually come from. The import screens open there.',
+    `<div class="gopts" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">${[['lib', 'This computer', 'Your Videos folder and any folders you add'], ['drive', 'Google Drive', 'Shared links, or your whole Drive'], ['up', 'Upload', 'Pick a file each time'], ['url', 'Links', 'YouTube, Vimeo, Dropbox…']].map(([k, n, d]) => `<label class="gopt ${O.imp.default_source === k ? 'on' : ''}"><input type="radio" name="dsrc" ${O.imp.default_source === k ? 'checked' : ''} onchange="O.imp.default_source='${k}';oImport()"><b>${n}</b><span class="mut">${d}</span></label>`).join('')}</div>
+     <div class="sect"><span class="cap">Folders with your videos</span><div id="o-folders" class="mut" style="margin-top:6px">Loading…</div>
+       <div class="row" style="margin-top:8px"><input id="o-newfolder" placeholder="e.g. /media/${esc((ME && ME.user ? ME.user.name : 'me').toLowerCase())}/Footage or ~/Dropbox/Videos"><button class="btn" onclick="oAddFolder()">Add</button></div></div>
+     <div class="sect"><span class="cap">Google Drive</span><div id="drivePanelSetup" style="margin-top:6px"></div></div>`);
+  oFolders(); oDrive();
+}
+async function oFolders() { const src = await api('/api/sources'); const el = $('#o-folders'); if (!el) return;
+  el.innerHTML = [...src.builtin.slice(0, 1), ...src.folders].map((f, i) => `<div class="row" style="margin:3px 0">${ico('folder')}<span class="grow">${esc(f)}</span>${i ? `<button class="ib" title="Remove" onclick="oRmFolder(${i - 1})">${ico('x')}</button>` : '<span class="mut">always</span>'}</div>`).join(''); }
+async function oAddFolder() { const f = v('o-newfolder').trim(); if (!f) return; const src = await api('/api/sources'); try { await api('/api/sources/folders', {method: 'PUT', body: {folders: [...src.folders, f]}}); } catch { return; } $('#o-newfolder').value = ''; oFolders(); }
+async function oRmFolder(i) { const src = await api('/api/sources'); src.folders.splice(i, 1); await api('/api/sources/folders', {method: 'PUT', body: {folders: src.folders}}); oFolders(); }
+async function oDrive() {
+  const el = $('#drivePanelSetup'); if (!el) return;
+  const st = await api('/api/drive/status');
+  el.innerHTML = st.status === 'connected' ? `<div class="dcon"><div><b>Google Drive connected</b><p class="mut">You can pick videos from your whole Drive.</p></div><button class="btn ghost" onclick="api('/api/drive/connect',{method:'DELETE'}).then(oDrive)">Disconnect</button></div>`
+    : `<div class="dcon"><div><b>Browse all your Drive videos</b><p class="mut">Optional. Sign in with Google once. Read-only.</p></div><button class="btn pri" onclick="oDriveConnect()">${ico('drive')}Connect Google Drive</button></div>`;
+}
+async function oDriveConnect() {
+  let s = await api('/api/drive/connect', {method: 'POST'}); let opened = false;
+  $('#drivePanelSetup').innerHTML = '<div class="dcon"><span class="spin"></span><span>Getting ready… a Google sign-in page will open.</span></div>';
+  for (let i = 0; i < 300; i++) {
+    if (s.url && !opened) { opened = true; window.open(s.url, '_blank', 'noopener');
+      $('#drivePanelSetup').innerHTML = `<div class="dcon"><div><b>Finish signing in with Google</b><p class="mut">In the tab that opened. Didn’t open?</p></div><a class="btn pri" href="${esc(s.url)}" target="_blank" rel="noopener">Open Google sign-in</a></div>`; }
+    if (s.status === 'connected' || s.status === 'error' || !$('#drivePanelSetup')) break;
+    await new Promise(r => setTimeout(r, 2000)); s = await api('/api/drive/status');
+  }
+  if (s.status === 'error') toast(s.error); oDrive();
+}
+function oDone() {
+  const s = O.settings, so = O.socials;
+  oFrame(O.edit ? 'All saved' : `You’re all set, ${esc(O.name.split(' ')[0])}`, 'Here’s what Designer Studio will use by default. Change it any time in Settings.',
+    `<div class="osum">
+      <div><span class="cap">Socials</span><p>${so.platforms.map(k => Object.fromEntries(PLATS)[k] + (so.handles[k] ? ` @${esc(so.handles[k])}` : '')).join(', ') || '—'} · ${so.per_week}× a week</p></div>
+      <div><span class="cap">Content</span><p>${esc(O.profile.niche || '—')}${O.profile.tone ? ' · ' + esc(O.profile.tone) : ''}</p></div>
+      <div><span class="cap">Style</span><p>${esc(s.captions)} captions · ${LOOK_NAMES[s.look] || s.look} · ${esc(s.aspect)} · ${s.min}–${s.max}s · ${s.count} moment${s.count > 1 ? 's' : ''} per video</p></div>
+      <div><span class="cap">Brand & images</span><p>${s.logo ? 'Logo ' + esc(s.logo_pos) : 'No logo'} · ${O.images.presenter ? 'presenter photo set' : 'no presenter photo'} · ${esc((BSTYLES.find(b => b[0] === O.images.broll_style) || [])[1] || '')} B-roll</p></div>
+      <div><span class="cap">Videos from</span><p>${esc({lib: 'This computer', drive: 'Google Drive', up: 'Upload', url: 'Links'}[O.imp.default_source])}</p></div></div>`,
+    O.edit ? 'Done' : 'Start creating', 'oFinish()');
+}
+async function oFinish() { await loadMe(); META = await api('/api/meta'); $('#onb').classList.remove('open'); const box = $('#homeArea'); box.dataset.d = '.15s'; box.dataset.d2 = '.4s'; drawHome(); if (!O.edit) { showSplash(); await afterSignIn(); showSplash(); } }
+
 // ------------------------------------------------ keys + start
 addEventListener('keydown', e => {
   const tag = document.activeElement && document.activeElement.tagName;
@@ -1821,8 +2096,9 @@ addEventListener('keydown', e => {
 addEventListener('resize', () => { if (PROJ) drawTimeline(); });
 (async () => {
   META = await api('/api/meta'); drawFx(); drawInspector(); updTc();
-  await poll(); setInterval(poll, 2000);
-  if (STATE.projects[0] && !CUR) openProject(STATE.projects[0].slug);
+  await loadMe();
+  setInterval(() => { if (!ME || !ME.users_exist || ME.user) poll(); }, 2000);
+  if (ME.user || !ME.users_exist) { await poll(); if (STATE.projects[0] && !CUR) openProject(STATE.projects[0].slug); }
 })();
 </script>
 </body>

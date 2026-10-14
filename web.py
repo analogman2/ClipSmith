@@ -19,6 +19,11 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 
 import clipsmith as cs
 import studio
+import users as U
+from contextvars import ContextVar
+from fastapi.responses import JSONResponse
+
+ME = ContextVar("me", default=None)      # the signed-in user for this request (or the job's owner)
 
 HERE = Path(__file__).resolve().parent
 CLIPS = HERE / "clips"
@@ -26,12 +31,18 @@ UPLOADS = HERE / "uploads"
 FOLDERS_FILE = HERE / "library.json"      # extra library folders added in the app (external drives...)
 
 
-def library_roots():
-    extra = []
+def my_folders():
+    """Extra library folders: the user's own (from setup), or the shared list from before users existed."""
+    if uid():
+        return U.prefs(uid())["import"].get("folders", [])
     try:
-        extra = [Path(p).expanduser() for p in json.loads(FOLDERS_FILE.read_text()).get("folders", [])]
+        return json.loads(FOLDERS_FILE.read_text()).get("folders", [])
     except (OSError, ValueError):
-        pass
+        return []
+
+
+def library_roots():
+    extra = [Path(p).expanduser() for p in my_folders()]
     return LIBRARY + [p for p in extra if p not in LIBRARY]
 
 
@@ -40,6 +51,72 @@ LIBRARY = [Path(p).expanduser() for p in os.environ.get("CLIPSMITH_LIBRARY", "~/
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
 
 app = FastAPI(title="Designer Studio")
+
+# Open without signing in: the home screen's profile picker, creating a user, signing in.
+OPEN_PATHS = {("GET", "/api/users"), ("POST", "/api/users"), ("POST", "/api/login"), ("GET", "/api/me"),
+              ("POST", "/api/logout"), ("GET", "/api/meta")}
+
+
+@app.middleware("http")
+async def signed_in(request: Request, call_next):
+    u = U.session_user(request.cookies.get("ds_session"))
+    token = ME.set(u)
+    try:
+        path = request.url.path
+        guarded = path.startswith("/api/") or path.startswith("/files/")
+        public_photo = request.method == "GET" and path.startswith("/api/users/") and path.endswith("/photo")
+        if guarded and not u and U.all_users() and (request.method, path) not in OPEN_PATHS and not public_photo:
+            return JSONResponse({"detail": "Please sign in."}, status_code=401)
+        return await call_next(request)
+    finally:
+        ME.reset(token)
+
+
+def me():
+    return ME.get()
+
+
+def uid():
+    u = me()
+    return u["id"] if u else None
+
+
+def is_admin():
+    u = me()
+    return bool(u and u.get("admin")) or not U.all_users()
+
+
+def can_see(owner):
+    """Projects belong to their owner; ones from before users existed belong to the admin."""
+    if not U.all_users():
+        return True
+    return owner == uid() or (owner is None and is_admin())
+
+
+def user_settings():
+    """Defaults for new work: built-in < brand.json < the user's choices from setup."""
+    base = {**cs.Settings().to_dict(), **cs.load_brand(HERE / "brand.json")}
+    if uid():
+        base.update({k: v for k, v in U.prefs(uid()).get("settings", {}).items() if k in base})
+    return base
+
+
+def suffix():
+    """Project folders of non-admin users get a short suffix so two people can import the same video."""
+    u = me()
+    return "" if not u or u.get("admin") else "-" + u["id"][:4]
+
+
+def ig_config():
+    return (U.user_dir(uid()) / "instagram.json") if uid() else None
+
+
+def drive_remote():
+    return f"gdrive_{uid()}" if uid() else "gdrive"
+
+
+def profile_path():
+    return (U.user_dir(uid()) / "profile.json") if uid() else cs.PROFILE_FILE
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 JOBS = {}            # id -> job dict
@@ -98,8 +175,9 @@ cs._checks.append(job_check)
 def new_job(kind, project, fn, label, ids=None):
     j = {"id": uuid.uuid4().hex[:8], "kind": kind, "project": project, "label": label, "status": "queued", "ids": ids,
          "progress": 0.0, "log": [], "error": None, "result": None, "created": time.time(), "fn": fn,
-         "_pause": False, "_cancel": False}
+         "_pause": False, "_cancel": False, "user": uid(), "uname": (me() or {}).get("name", "")}
     JOBS[j["id"]] = j
+    U.log(me(), "queued", label)
     Q.put(j)
     return public(j)
 
@@ -150,6 +228,10 @@ def worker():
             continue
         j["status"], j["started"], j["_tid"] = "running", time.time(), threading.get_ident()
         CURRENT = j
+        owner = U.get(j["user"]) if j.get("user") else None
+        me_token = ME.set(owner)                       # the job runs as the person who started it
+        cs.PROFILE_FILE = (U.user_dir(owner["id"]) / "profile.json") if owner else HERE / "profile.json"
+        cs.OWNER = owner["id"] if owner else None
 
         def hook(msg, progress, j=j):
             if msg is not None:
@@ -176,6 +258,9 @@ def worker():
             cs._hooks.remove(hook)
             j["finished"] = time.time()
             CURRENT = None
+            U.log(owner, {"done": "finished", "error": "failed", "stopped": "stopped"}.get(j["status"], j["status"]),
+                  j["label"] + (f" — {j['error']}" if j.get("error") else ""))
+            ME.reset(me_token)
 
 
 threading.Thread(target=worker, daemon=True).start()
@@ -227,9 +312,16 @@ def job_action(jid: str, action: str):
 
 def project(slug):
     p = cs.Project(CLIPS / slug)
-    if not p.file.exists() or "/" in slug or slug.startswith("."):
+    if not p.file.exists() or "/" in slug or slug.startswith(".") or not can_see(p.data.get("owner")):
         raise HTTPException(404, "no such project")
     return p
+
+
+def own(p):
+    """Mark a new project as the signed-in user's."""
+    if uid() and p.data.get("owner") != uid():
+        p.data["owner"] = uid()
+        p.save()
 
 
 def summary(p):
@@ -251,9 +343,9 @@ def index():
 
 @app.get("/api/meta")
 def meta():
-    brand = cs.load_brand(HERE / "brand.json")
     import dub
-    return {"defaults": {**cs.Settings().to_dict(), **brand}, "captions": list(cs.CAPTION_STYLES) + ["none"],
+    return {"defaults": user_settings(), "prefs": U.prefs(uid()) if uid() else U.DEFAULT_PREFS,
+            "captions": list(cs.CAPTION_STYLES) + ["none"],
             "dub_langs": dub.DUB_LANGS,
             "aspects": list(cs.ASPECTS), "layouts": ["auto", "track", "split", "fit", "center"]}
 
@@ -263,10 +355,13 @@ def state():
     projects = []
     for f in sorted(CLIPS.glob("*/project.json"), key=lambda f: -f.stat().st_mtime):
         try:
-            projects.append(summary(cs.Project(f.parent)))
+            p = cs.Project(f.parent)
+            if can_see(p.data.get("owner")):
+                projects.append(summary(p))
         except Exception:  # noqa: BLE001
             pass
-    jobs = sorted(JOBS.values(), key=lambda j: -j["created"])[:20]
+    jobs = sorted([j for j in JOBS.values() if not U.all_users() or j.get("user") == uid()],
+                  key=lambda j: -j["created"])[:20]
     return {"projects": projects, "jobs": [public(j) for j in jobs]}
 
 
@@ -301,15 +396,16 @@ async def create(req: Request):
     sources = [x.strip() for x in (body.get("sources") or [body.get("source") or ""]) if x and x.strip()]
     if not sources:
         raise HTTPException(400, "pick a video or paste a URL")
-    s = cs.Settings.from_dict({**meta()["defaults"], **(body.get("settings") or {})})
+    s = cs.Settings.from_dict({**user_settings(), **(body.get("settings") or {})})
     jobs = []
     for source in sources:
-        def run(j, source=source):
-            p = cs.create_project(source, CLIPS, s, reselect=bool(body.get("reselect")))
+        def run(j, source=source, sfx=suffix()):
+            p = cs.create_project(source, CLIPS, s, reselect=bool(body.get("reselect")), suffix=sfx)
+            own(p)
             j["project"] = p.dir.name
             cs.render_all(p)
         label = Path(source).name if "://" not in source else source
-        jobs.append(new_job("create", cs.slug(Path(source).stem) if "://" not in source else None, run,
+        jobs.append(new_job("create", cs.slug(Path(source).stem) + suffix() if "://" not in source else None, run,
                             f"New clips: {label}"))
     return jobs[0] if len(jobs) == 1 else {"jobs": jobs}
 
@@ -397,6 +493,7 @@ def delete_clip(slug: str, cid: int):
             (p.dir / c["file"]).with_suffix(ext).unlink(missing_ok=True)
     p.data["clips"] = [x for x in p.clips if x["id"] != cid]
     p.save()
+    U.log(me(), "deleted clip", c.get("title", ""))
     cs.write_gallery(p)
     return {"ok": True}
 
@@ -463,26 +560,36 @@ def sheet(slug: str, start: str = "", per_day: int = 1, platforms: str = "", fmt
     return rows
 
 
+def read_profile():
+    try:
+        return {**cs.PROFILE_FIELDS, **json.loads(profile_path().read_text())}
+    except (OSError, ValueError):
+        return dict(cs.PROFILE_FIELDS)
+
+
 @app.get("/api/profile")
 def get_profile():
-    return cs.load_profile()
+    return read_profile()
 
 
 @app.put("/api/profile")
 async def put_profile(req: Request):
-    cs.save_profile(await req.json())
-    return cs.load_profile()
+    body = await req.json()
+    data = {k: str(body.get(k, "")).strip() for k in cs.PROFILE_FIELDS}
+    profile_path().write_text(json.dumps(data, indent=1, ensure_ascii=False))
+    U.log(me(), "updated creator profile")
+    return read_profile()
 
 
 @app.get("/api/insights")
 def get_insights():
-    return cs.insights(CLIPS)
+    return cs.insights(CLIPS, owner=uid())
 
 
 @app.post("/api/insights/ai")
 def ai_insights():
-    s = cs.Settings.from_dict(meta()["defaults"])
-    return new_job("insights", None, lambda j: cs.insights(CLIPS, s)["ai"], "AI insights")
+    s = cs.Settings.from_dict(user_settings())
+    return new_job("insights", None, lambda j: cs.insights(CLIPS, s, owner=cs.OWNER)["ai"], "AI insights")
 
 
 # ---------------------------------------------------------------- YouTube & Instagram tools
@@ -620,14 +727,12 @@ def sources():
             out = __import__("subprocess").run([exe, "listremotes", "--long"], capture_output=True, text=True, timeout=10).stdout
             for line in out.splitlines():
                 name, _, kind = line.partition(":")
-                if kind.strip() in ("drive", "onedrive", "dropbox", "box", "pcloud", "s3"):
+                if kind.strip() in ("drive", "onedrive", "dropbox", "box", "pcloud", "s3") and \
+                        (not U.all_users() or name.strip() == drive_remote()):   # each user sees their own drive
                     remotes.append({"name": name.strip(), "type": kind.strip()})
         except Exception:  # noqa: BLE001
             pass
-    try:
-        folders = json.loads(FOLDERS_FILE.read_text()).get("folders", [])
-    except (OSError, ValueError):
-        folders = []
+    folders = my_folders()
     return {"rclone": bool(exe), "remotes": remotes, "folders": folders,
             "builtin": [str(p).replace(str(Path.home()), "~") for p in LIBRARY]}
 
@@ -641,7 +746,11 @@ async def set_folders(req: Request):
         if not p.is_dir():
             raise HTTPException(400, f"not a folder: {f}")
         folders.append(str(p))
-    FOLDERS_FILE.write_text(json.dumps({"folders": folders}, indent=1))
+    if uid():
+        U.save_prefs(uid(), {"import": {"folders": folders}})
+    else:
+        FOLDERS_FILE.write_text(json.dumps({"folders": folders}, indent=1))
+    U.log(me(), "changed library folders", ", ".join(folders))
     return sources()
 
 
@@ -695,19 +804,27 @@ async def links_list(req: Request):
 @app.post("/api/drive/connect")
 def drive_connect():
     import drive_connect as dc
-    return dc.start()
+    U.log(me(), "started connecting Google Drive")
+    return dc.start(drive_remote())
 
 
 @app.get("/api/drive/status")
 def drive_status():
     import drive_connect as dc
-    return dc.status()
+    st = dc.status(drive_remote())
+    if st["status"] == "connected" and uid() and not U.prefs(uid())["import"].get("drive_logged"):
+        U.save_prefs(uid(), {"import": {"drive_logged": True}})
+        U.log(me(), "connected Google Drive")
+    return st
 
 
 @app.delete("/api/drive/connect")
 def drive_disconnect():
     import drive_connect as dc
-    return dc.disconnect()
+    U.log(me(), "disconnected Google Drive")
+    if uid():
+        U.save_prefs(uid(), {"import": {"drive_logged": False}})
+    return dc.disconnect(drive_remote())
 
 
 @app.get("/api/drive/browse")
@@ -715,7 +832,7 @@ def drive_browse(remote: str, path: str = ""):
     """Folders and videos in a cloud drive connected with rclone."""
     import re as _re
     import subprocess as sp
-    if not _re.match(r"^[\w.-]+$", remote) or ".." in path:
+    if not _re.match(r"^[\w.-]+$", remote) or ".." in path or (U.all_users() and remote != drive_remote()):
         raise HTTPException(400, "bad path")
     import drive_connect as dc
     r = sp.run([dc.rclone() or "rclone", "lsjson", f"{remote}:{path}", "--no-modtime", "--fast-list"], capture_output=True, text=True, timeout=60)
@@ -725,6 +842,169 @@ def drive_browse(remote: str, path: str = ""):
     out = [{"name": i["Name"], "dir": i["IsDir"], "size": i.get("Size", 0), "path": (path.rstrip("/") + "/" if path else "") + i["Name"]}
            for i in items if i["IsDir"] or _re.search(VIDEO_RE, i["Name"], _re.I)]
     return sorted(out, key=lambda x: (not x["dir"], x["name"].lower()))
+
+
+# ---------------------------------------------------------------- users, sign-in, preferences, activity
+
+FAILS = {}               # user id -> [failed passcodes, locked until]
+
+
+def _signed_in_response(u, body):
+    r = JSONResponse(body)
+    r.set_cookie("ds_session", U.new_session(u["id"]), max_age=U.SESSION_DAYS * 86400, httponly=True, samesite="lax")
+    return r
+
+
+@app.get("/api/users")
+def users_list():
+    return [U.public(u) for u in U.all_users()]
+
+
+@app.post("/api/users")
+async def users_create(req: Request):
+    """The new-user setup's first step: name (+ optional passcode). Signs the new user in."""
+    body = await req.json()
+    try:
+        u = U.create(body.get("name", ""), (body.get("passcode") or "").strip())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    U.log(u, "created user" + (" (admin)" if u["admin"] else ""))
+    return _signed_in_response(u, {"user": U.public(u)})
+
+
+@app.post("/api/login")
+async def login(req: Request):
+    body = await req.json()
+    u = U.get(body.get("id", ""))
+    if not u:
+        raise HTTPException(404, "No such user.")
+    n, until = FAILS.get(u["id"], [0, 0])
+    if time.time() < until:
+        raise HTTPException(429, f"Too many wrong passcodes. Try again in {int(until - time.time())} seconds.")
+    if not U.check_passcode(u, (body.get("passcode") or "").strip()):
+        n += 1
+        FAILS[u["id"]] = [n, time.time() + 60 if n >= 5 else 0]
+        U.log(u, "wrong passcode")
+        raise HTTPException(403, "That passcode isn't right.")
+    FAILS.pop(u["id"], None)
+    U.log(u, "signed in")
+    return _signed_in_response(u, {"user": U.public(u)})
+
+
+@app.post("/api/logout")
+def logout(request: Request):
+    if me():
+        U.log(me(), "signed out")
+    U.end_session(request.cookies.get("ds_session"))
+    r = JSONResponse({"ok": True})
+    r.delete_cookie("ds_session")
+    return r
+
+
+@app.get("/api/me")
+def whoami():
+    u = me()
+    return {"user": U.public(u) if u else None, "users_exist": bool(U.all_users()),
+            "prefs": U.prefs(u["id"]) if u else None, "profile": read_profile() if u else None}
+
+
+@app.put("/api/me")
+async def update_me(req: Request):
+    """Save the setup / settings: name, passcode, preferences (settings, socials, import, images), creator profile."""
+    body = await req.json()
+    u = me()
+    if not u:
+        raise HTTPException(401, "Please sign in.")
+    changes = []
+    try:
+        fields = {k: body[k] for k in ("name", "passcode") if k in body}
+        if fields:
+            U.update(u["id"], **fields)
+            changes += [("passcode" if k == "passcode" else k) for k in fields]
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if body.get("prefs"):
+        prefs = body["prefs"]
+        if "settings" in prefs:
+            allowed = set(cs.Settings().to_dict())
+            prefs["settings"] = {k: v for k, v in prefs["settings"].items() if k in allowed}
+        U.save_prefs(u["id"], prefs)
+        changes += list(prefs)
+    if body.get("profile") is not None:
+        data = {k: str(body["profile"].get(k, "")).strip() for k in cs.PROFILE_FIELDS}
+        profile_path().write_text(json.dumps(data, indent=1, ensure_ascii=False))
+        changes.append("creator profile")
+    if changes:
+        U.log(u, "updated settings", ", ".join(changes))
+    return whoami()
+
+
+@app.post("/api/me/upload/{kind}")
+async def me_upload(kind: str, file: UploadFile):
+    """Profile photo, brand logo (PNG) or presenter photo for AI shorts."""
+    u = me()
+    if not u or kind not in ("photo", "logo", "presenter"):
+        raise HTTPException(400, "bad upload")
+    ext = Path(file.filename or "x.png").suffix.lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+        raise HTTPException(400, "Use a PNG or JPG image.")
+    data = await file.read()
+    if len(data) > 20 << 20:
+        raise HTTPException(400, "That image is over 20 MB.")
+    d = U.user_dir(u["id"])
+    for old in d.glob(f"{kind}.*"):
+        old.unlink()
+    dest = d / f"{kind}{ext}"
+    dest.write_bytes(data)
+    if kind == "photo":
+        U.update(u["id"], photo=True)
+    elif kind == "logo":
+        U.save_prefs(u["id"], {"settings": {"logo": str(dest)}})
+    else:
+        U.save_prefs(u["id"], {"images": {"presenter": str(dest)}})
+    U.log(u, f"uploaded {kind}")
+    return whoami()
+
+
+@app.get("/api/users/{user_id}/photo")
+def user_photo(user_id: str):
+    if not user_id.isalnum():
+        raise HTTPException(404)
+    f = next((p for p in (U.DIR / user_id).glob("photo.*")), None) if (U.DIR / user_id).is_dir() else None
+    if not f:
+        raise HTTPException(404)
+    return FileResponse(f)
+
+
+@app.get("/api/me/image/{kind}")
+def my_image(kind: str):
+    u = me()
+    f = next((p for p in U.user_dir(u["id"]).glob(f"{kind}.*")), None) if u and kind in ("logo", "presenter") else None
+    if not f:
+        raise HTTPException(404)
+    return FileResponse(f)
+
+
+@app.delete("/api/users/{user_id}")
+def users_delete(user_id: str):
+    if not is_admin() or not me():
+        raise HTTPException(403, "Only the admin can remove users.")
+    if user_id == uid():
+        raise HTTPException(400, "You can't remove yourself.")
+    victim = U.get(user_id)
+    if not victim:
+        raise HTTPException(404)
+    U.delete(user_id)
+    U.log(me(), "removed user", victim["name"])
+    return users_list()
+
+
+@app.get("/api/activity")
+def activity(everyone: bool = False):
+    """Your activity; the admin can see everyone's."""
+    if everyone and not is_admin():
+        raise HTTPException(403, "Only the admin can see everyone's activity.")
+    return U.activity(None if everyone else uid())
 
 
 # ---------------------------------------------------------------- Clip Generator (guided path)
@@ -743,15 +1023,16 @@ async def gen_analyze(req: Request):
     source = (body.get("source") or "").strip()
     if not source:
         raise HTTPException(400, "pick a video first")
-    s = cs.Settings.from_dict({**meta()["defaults"], "count": int(body.get("count") or 5),
+    s = cs.Settings.from_dict({**user_settings(), "count": int(body.get("count") or user_settings().get("count") or 5),
                                "prompt": (body.get("prompt") or "").strip(), "max": float(body.get("max") or 60)})
 
-    def run(j):
-        p = cs.create_project(source, CLIPS, s, reselect=True)
+    def run(j, sfx=suffix()):
+        p = cs.create_project(source, CLIPS, s, reselect=True, suffix=sfx)
+        own(p)
         j["project"] = p.dir.name
         return {"slug": p.dir.name}
     label = Path(source).name if "://" not in source else source
-    return new_job("create", cs.slug(Path(source).stem) if "://" not in source else None, run, f"Analyze: {label}")
+    return new_job("create", cs.slug(Path(source).stem) + suffix() if "://" not in source else None, run, f"Analyze: {label}")
 
 
 @app.post("/api/gen/broll")
@@ -811,6 +1092,13 @@ async def shorts_new(req: Request):
         raise HTTPException(400, "describe the video or paste a link")
     sh = generator.Short()
     sh.data.update({k: body.get(k) for k in ("description", "url", "language", "seconds", "actor", "voice", "audience")})
+    sh.data["owner"] = uid()
+    pres = U.prefs(uid())["images"].get("presenter") if uid() else ""
+    if pres and Path(pres).exists():                 # the presenter photo chosen in setup is offered first
+        sh.dir.mkdir(parents=True, exist_ok=True)
+        dest = sh.dir / f"presenter{Path(pres).suffix}"
+        __import__("shutil").copy(pres, dest)
+        sh.data["portraits"], sh.data["portrait"] = [str(dest)], str(dest)
     sh.save()
     j = new_job("gen", None, lambda j: generator.write_script(generator.Short(sh.id)), "Writing your script")
     return {"id": sh.id, "job": j}
@@ -821,7 +1109,7 @@ def short(sid):
     if not sid.isalnum():
         raise HTTPException(404)
     sh = generator.Short(sid)
-    if not sh.file.exists():
+    if not sh.file.exists() or not can_see(sh.data.get("owner")):
         raise HTTPException(404, "no such short")
     return sh
 
@@ -862,10 +1150,12 @@ async def shorts_step(sid: str, step: str, req: Request):
     if step == "voice":
         return new_job("gen", None, lambda j: generator.record_voice(generator.Short(sid)), "Recording the voice")
     if step == "video":
+        base, sfx = user_settings(), suffix()
+
         def run(j):
             s2 = generator.Short(sid)
             generator.make_video(s2)
-            slug = generator.make_project(s2, CLIPS)
+            slug = generator.make_project(s2, CLIPS, base, sfx)
             j["project"] = slug
             return {"slug": slug}
         return new_job("gen", None, run, "Animating your AI actor")
@@ -896,7 +1186,7 @@ def shorts_file(sid: str, name: str):
 @app.get("/api/instagram")
 def ig_status():
     import instagram
-    return instagram.status()
+    return instagram.status(ig_config())
 
 
 @app.post("/api/instagram/connect")
@@ -906,7 +1196,9 @@ async def ig_connect(req: Request):
     if not (body.get("token") or "").strip():
         raise HTTPException(400, "paste your access token")
     try:
-        return instagram.connect(body["token"], body.get("user_id", ""))
+        r = instagram.connect(body["token"], body.get("user_id", ""), config=ig_config())
+        U.log(me(), "connected Instagram", "@" + r.get("username", ""))
+        return r
     except SystemExit as e:
         raise HTTPException(400, str(e))
 
@@ -914,7 +1206,8 @@ async def ig_connect(req: Request):
 @app.delete("/api/instagram")
 def ig_disconnect():
     import instagram
-    return instagram.disconnect()
+    U.log(me(), "disconnected Instagram")
+    return instagram.disconnect(ig_config())
 
 
 @app.post("/api/projects/{slug}/clips/{cid}/post")
@@ -930,9 +1223,12 @@ async def ig_post(slug: str, cid: int, req: Request):
         raise HTTPException(400, "render the clip first")
     caption = (body.get("caption") or "").strip()
     cover_ms = int(float(body.get("cover_ms") or 1200))
+    cfg = ig_config()
 
     def run(p, s):
-        r = instagram.post_reel(p.dir / f, caption, cover_ms)
+        r = instagram.post_reel(p.dir / f, caption, cover_ms, config=cfg)
+        U.log(U.get(p.data.get("owner")) if p.data.get("owner") else None, "posted to Instagram",
+              f"{c.get('title', '')} {r.get('permalink', '')}")
         c2 = p.clip(cid)
         c2.setdefault("posts", []).append({**r, "platform": "instagram", "dub": lang or ""})
         c2.setdefault("metrics", []).append({"platform": "instagram", "posted_at": time.strftime("%Y-%m-%dT%H:%M"),
@@ -947,6 +1243,7 @@ def delete_project(slug: str):
     if busy(slug):
         raise HTTPException(409, "stop or wait for this project's jobs first")
     p = project(slug)
+    U.log(me(), "deleted project", Path(p.data.get("video", slug)).name)
     shutil.rmtree(p.dir)
     return {"ok": True}
 
