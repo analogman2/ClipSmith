@@ -1979,7 +1979,7 @@ async function oSave() { if (await oCollect()) { await loadMe(); META = await ap
 function oYou() {
   oFrame(O.edit ? 'You' : 'Welcome to Designer Studio', O.edit ? '' : 'Let’s set things up once, so making shorts later takes as few choices as possible. About two minutes.',
     `<div class="orow"><label class="ophoto">${O.photoUrl || (O.edit && ME.user.photo) ? `<img src="${O.photoUrl || `/api/users/${ME.user.id}/photo?v=${Date.now() % 1e6}`}" alt="">` : `<span>${ico('person', 'l')}</span>`}<input type="file" accept="image/*" hidden onchange="O.photo=this.files[0];O.photoUrl=URL.createObjectURL(this.files[0]);oYou()"><small>Photo</small></label>
-      <div class="grow"><label class="f" style="margin-top:0">Your name</label><input id="o-name" value="${esc(O.name)}" placeholder="e.g. Amanda" autofocus></div></div>
+      <div class="grow"><label class="f" style="margin-top:0">Your name</label><input id="o-name" value="${esc(O.name)}" placeholder="e.g. Sam" autofocus></div></div>
     <label class="f">Passcode (optional)</label><div class="grid2"><input id="o-pin" type="password" inputmode="numeric" maxlength="8" placeholder="${O.edit && ME.user.has_passcode ? 'New passcode (leave empty to keep)' : '4–8 digits'}" value="${esc(O.passcode)}">
       <input id="o-pin2" type="password" inputmode="numeric" maxlength="8" placeholder="Repeat it" value="${esc(O.passcode2)}"></div>
     ${O.edit && ME.user.has_passcode ? `<label class="gswitch sm" style="margin-top:8px"><input type="checkbox" id="o-nopin"> Remove my passcode</label>` : ''}

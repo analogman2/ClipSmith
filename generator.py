@@ -203,9 +203,10 @@ def portraits(sh: Short, n=4):
     out = []
     for k in range(n):
         cs.log(f"[actor] drawing actor {k + 1}/{n}...", 0.1 + 0.85 * k / n)
-        src = comfy.image(f"photorealistic vertical smartphone video frame of {look}, looking straight into the camera, "
+        src = comfy.image(f"photorealistic vertical portrait photo of {look}, looking straight into the camera, "
                           f"mouth closed, relaxed natural expression, head and shoulders centered in the upper half, "
-                          f"clean bright modern background, soft natural light, sharp focus", 1088, 1920,
+                          f"clean bright modern background, soft natural light, sharp focus, full-frame photo with no "
+                          f"phone, screen or device frame visible", 1088, 1920,
                           prefix="designer_studio/actor_portrait")
         dest = sh.dir / f"portrait_{k}_{uuid.uuid4().hex[:6]}.png"
         sh.dir.mkdir(parents=True, exist_ok=True)
