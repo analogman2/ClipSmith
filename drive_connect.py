@@ -16,11 +16,17 @@ from pathlib import Path
 BIN = Path.home() / ".local" / "bin" / "rclone"
 REMOTE = "gdrive"
 STATE = {"status": "idle", "url": "", "error": "", "started": 0}
+PROC = {"p": None}
 _lock = threading.Lock()
 
 
 def rclone():
     return shutil.which("rclone") or (str(BIN) if BIN.exists() else None)
+
+
+def _get(url, timeout=60):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) DesignerStudio"})
+    return urllib.request.urlopen(req, timeout=timeout).read()   # downloads.rclone.org refuses Python's default agent
 
 
 def install():
@@ -29,10 +35,10 @@ def install():
     if rclone():
         return rclone()
     base = "https://downloads.rclone.org"
-    ver = urllib.request.urlopen(f"{base}/version.txt", timeout=30).read().decode().split()[-1]   # e.g. v1.71.1
+    ver = _get(f"{base}/version.txt", 30).decode().split()[-1]   # e.g. v1.75.2
     name = f"rclone-{ver}-linux-amd64.zip"
-    data = urllib.request.urlopen(f"{base}/{ver}/{name}", timeout=300).read()
-    sums = urllib.request.urlopen(f"{base}/{ver}/SHA256SUMS", timeout=30).read().decode()
+    data = _get(f"{base}/{ver}/{name}", 300)
+    sums = _get(f"{base}/{ver}/SHA256SUMS", 30).decode()
     want = next((ln.split()[0] for ln in sums.splitlines() if ln.strip().endswith(name)), None)
     if not want or hashlib.sha256(data).hexdigest() != want:
         raise RuntimeError("the rclone download didn't match its published checksum")
@@ -60,6 +66,7 @@ def _run():
         subprocess.run([exe, "config", "delete", REMOTE], capture_output=True)
         p = subprocess.Popen([exe, "config", "create", REMOTE, "drive", "scope=drive.readonly", "config_is_local=true"],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        PROC["p"] = p
         deadline = time.time() + 600
         for line in p.stdout:
             m = re.search(r"(http://127\.0\.0\.1:53682/auth\?state=\S+)", line)
@@ -97,6 +104,9 @@ def status():
 
 
 def disconnect():
+    p = PROC.get("p")
+    if p and p.poll() is None:                       # an unfinished sign-in
+        p.kill()
     exe = rclone()
     if exe:
         subprocess.run([exe, "config", "delete", REMOTE], capture_output=True)

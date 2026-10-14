@@ -113,7 +113,8 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .tb .seg .ib{min-width:38px;height:28px;border-radius:7px;color:var(--text2)}
 .tb .seg .ib.on{background:var(--elev);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18),0 0 0 .5px var(--hair)}
 .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:var(--text);margin-right:10px;white-space:nowrap;letter-spacing:-.01em}
-.brand svg{width:14px;height:18px} .brand svg path[fill="#fff"]{fill:var(--text)} .brand svg path[stroke="#fff"]{stroke:var(--text)}
+svg.logo{width:14px;height:18px;flex:none;color:var(--text);display:inline-block;vertical-align:-2px}
+.brand{cursor:default} .ghead h1,#mm .mmh h2{display:flex;align-items:center;justify-content:center;gap:9px} #mm svg.logo{color:#f5f5f7}
 .ring{width:17px;height:17px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),var(--field2) 0);display:grid;place-items:center;transition:background .3s}
 .ring::after{content:"";width:11px;height:11px;border-radius:50%;background:var(--bg)}
 #taskTxt{max-width:34vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2);font-size:12px}
@@ -471,7 +472,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   .stage{height:56vh}
   .bottom{display:flex;flex-direction:column}
   .tl{height:300px} .fx{height:380px}
-  .tb{flex-wrap:wrap;padding:8px;height:auto;gap:6px} #taskTxt,.brand{display:none}
+  .tb{flex-wrap:wrap;padding:8px;height:auto;gap:6px} #taskTxt,.brand span{display:none}
   .tlbar{height:38px} .cols4{grid-template-columns:1fr 1fr} .imp{grid-template-columns:1fr}
 }
 </style>
@@ -525,6 +526,8 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/></symbol>
   <symbol id="i-render" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pear" viewBox="0 0 200 260"><mask id="pearbite"><rect width="200" height="260" fill="#fff"/><circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask>
+    <path mask="url(#pearbite)" fill="currentColor" stroke="none" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/><path d="M101 46C100 32 104 21 113 12" stroke="currentColor" stroke-width="9" fill="none" stroke-linecap="round"/></symbol>
   <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8.5 4h7l6 10.5-3.5 6h-12L2.5 14.5z"/><path d="M8.5 4 14.5 14.5M15.5 4 9.5 14.5M2.5 14.5h19"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
@@ -559,7 +562,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 
 <div id="app">
   <div class="tb">
-    <div class="brand" onclick="showSplash()" title="Home"><svg viewBox="0 0 200 260"><defs><mask id="bite2"><rect width="200" height="260" fill="#fff"/><circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs><path mask="url(#bite2)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/><path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/></svg>Designer Studio</div>
+    <div class="brand" onclick="showSplash()" title="Home"><svg class="logo"><use href="#i-pear"/></svg><span>Designer Studio</span></div>
     <div class="grp">
       <button class="ib" title="New clips from a video" onclick="openNew()"><svg class="i"><use href="#i-plus"/></svg></button>
       <button class="ib" title="Import / upload a video" onclick="openNew('up')"><svg class="i"><use href="#i-import"/></svg></button>
@@ -648,12 +651,12 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 <dialog id="dlg"><div class="sheet"><div class="sh" id="dlgT"></div><div class="sb" id="dlgB"></div>
   <div class="sf"><button class="btn ghost" onclick="dlg.close()" id="dlgC">Cancel</button><button class="btn pri" id="dlgGo">OK</button></div></div></dialog>
 
-<div id="gen"><div class="ghead"><button class="x" onclick="closeGenerator();showSplash()" title="Back to start"><svg class="i s"><use href="#i-x"/></svg></button><h1>Clip Generator</h1>
+<div id="gen"><div class="ghead"><button class="x" onclick="closeGenerator();showSplash()" title="Back to start"><svg class="i s"><use href="#i-x"/></svg></button><h1><svg class="logo"><use href="#i-pear"/></svg>Clip Generator</h1>
   <button class="btn ghost" onclick="closeGenerator()">Open Clip Studio</button></div>
   <div class="gbodyw"><aside id="gside"></aside><main id="gmain"></main></div><div class="gfoot" id="gfoot"></div></div>
 
 <div id="mm">
-  <div class="mmh"><button class="x" onclick="closeMontage()" title="Close (Esc)"><svg class="i s"><use href="#i-x"/></svg></button><h2>Montage Maker</h2><button class="add" onclick="makeMontage()">Add to Timeline</button></div>
+  <div class="mmh"><button class="x" onclick="closeMontage()" title="Close (Esc)"><svg class="i s"><use href="#i-x"/></svg></button><h2><svg class="logo"><use href="#i-pear"/></svg>Montage Maker</h2><button class="add" onclick="makeMontage()">Add to Timeline</button></div>
   <div class="mmv"><video id="mmv" controls playsinline></video></div>
   <div class="strip" id="mmstrip"></div>
   <div class="tools">

@@ -1932,7 +1932,8 @@ video{{width:100%;aspect-ratio:9/16;background:#000;display:block}}
 .score{{font-weight:800;border-radius:8px;padding:2px 8px;background:#333}} .s90,.s100{{background:var(--acc);color:#000}} .s80{{background:#9be15d;color:#000}} .s70{{background:#5dc3e1;color:#000}}
 .sub,.why,.bars{{color:var(--mut);margin:6px 0}} .bars span{{margin-right:10px}} pre{{white-space:pre-wrap;background:#0b0c0f;padding:10px;border-radius:8px;font:13px/1.4 system-ui}}
 button,a{{background:#2a2d35;color:var(--fg);border:0;border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer;text-decoration:none}}
-</style></head><body><header><h1>{len(cards)} shorts from {html.escape(name)}</h1></header><main>
+header h1{{display:flex;align-items:center;gap:10px}} header svg{{width:16px;height:21px;flex:none}}
+</style></head><body><header><h1><svg viewBox="0 0 200 260" aria-label="Designer Studio"><mask id="b"><rect width="200" height="260" fill="#fff"/><circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask><path mask="url(#b)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/><path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/></svg>{len(cards)} shorts from {html.escape(name)}</h1></header><main>
 {chr(10).join(cards)}
 </main><script>
 document.querySelectorAll('button[data-copy]').forEach(b=>b.onclick=async()=>{{
