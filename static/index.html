@@ -160,7 +160,10 @@ label.f{display:block;color:var(--text2);font-size:11.5px;font-weight:500;margin
 .tile .sc{position:absolute;right:5px;bottom:5px;font-size:11px;font-weight:700;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   color:#fff;border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
 .tile .sc.hot{background:var(--accent);color:#fff}
-.tile .busy{position:absolute;inset:0;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:grid;place-items:center;font-size:12px;color:#fff;font-weight:500}
+.tile .busy{position:absolute;inset:0;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:grid;place-items:center;font-size:12px;color:#fff;font-weight:600}
+.tile .busy.queued{background:rgba(0,0,0,.35);place-items:end center;padding-bottom:28px}
+.qstate{font-size:12px;border-radius:8px;padding:7px 10px;margin-top:12px;background:var(--accent-weak);color:var(--accent)}
+.qstate.queued{background:var(--field);color:var(--text2)}
 .tile .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--text3);font-size:11.5px;text-align:center;padding:6px;background:var(--field)}
 
 /* viewer */
@@ -699,11 +702,12 @@ function drawBrowser() {
     const cs = clipsSorted().filter(c => !q || (c.title + ' ' + (c.topic || '')).toLowerCase().includes(q)); n = cs.length;
     const topScore = Math.max(0, ...PROJ.clips.map(c => c.score || 0));
     html = cs.map(c => { const asp = ((c.overrides || {}).aspect || c.aspect || PROJ.settings.aspect || '9:16').replace(':', '');
-      const busy = job && (job.kind === 'create' || job.label.includes(c.title) || job.label.startsWith('Re-render all'));
+      const q = PROJ.queue || {}, st = PROJ.creating ? 'analyzing' : (q[c.id] || q['*']);
+      const busy = st && {analyzing: 'Analyzing…', queued: 'Queued', rendering: 'Rendering…'}[st];
       return `<div class="tile ${asp === '916' ? '' : 'a' + asp} ${SELKIND === 'clip' && SEL === c.id ? 'on' : ''}" onclick="select('clip',${c.id})" ondblclick="togglePlay()">
         <div class="th">${!SEEN.has(CUR + ':' + c.id) ? '<span class="dot" title="new"></span>' : ''}
         ${c.file ? `<img src="${fileUrl(c.file.replace(/\.mp4$/, '.jpg'))}?v=${c.rendered || 0}" loading="lazy" alt="">` : `<div class="ph">${c.error ? '<span class="err">failed</span>' : 'not rendered'}</div>`}
-        <span class="sc ${c.score && c.score === topScore ? 'hot' : ''}" ${c.score && c.score === topScore ? 'title="Best clip in this project"' : ''}>${c.score || '–'}</span>${busy ? '<div class="busy">working…</div>' : ''}</div>
+        <span class="sc ${c.score && c.score === topScore ? 'hot' : ''}" ${c.score && c.score === topScore ? 'title="Best clip in this project"' : ''}>${c.score || '–'}</span>${busy ? `<div class="busy ${st}">${busy}</div>` : ''}</div>
         <div class="nm">${esc(c.title)}</div></div>`; }).join('');
   } else if (v === 'chapters') {
     const ms = (PROJ.map || []).map((c, i) => ({...c, i})).filter(c => !q || c.title.toLowerCase().includes(q)); n = ms.length;
@@ -777,7 +781,7 @@ const wheel = (label, v, s) => `<div class="wh"><span class="cap">${label}</span
 function drawInspector() {
   const B = $('#ibody');
   if (!PROJ) { B.innerHTML = '<p class="mut">No project open.</p>'; $('#iname').textContent = ''; return; }
-  const busy = !!PROJ.busy;
+  const busy = !!PROJ.creating;          // edits are only locked while an import replaces the clips
   if (SELKIND === 'chapter') {
     const c = (PROJ.map || [])[SEL]; if (!c) return;
     $('#iname').textContent = 'Chapter';
@@ -800,7 +804,9 @@ function drawInspector() {
   $('#iname').innerHTML = `${esc((c.file || 'not rendered').replace(/\.mp4$/, ''))} &nbsp;<span style="color:var(--text)">${c.length ? Math.round(c.length) + 's' : ''}</span>`;
   const o = c.overrides || {}, sc = c.scores || {}, P = pf(c);
   const opt = (list, val) => `<option value="">Project default</option>` + list.map(x => `<option ${x === val ? 'selected' : ''}>${x}</option>`).join('');
-  const actions = `<div class="actions"><button class="btn pri" onclick="saveClip()" ${busy ? 'disabled' : ''}>${ico('render')}Save & Render</button>
+  const qs = (PROJ.queue || {})[c.id] || (PROJ.queue || {})['*'];
+  const actions = `${qs ? `<div class="qstate ${qs}">${qs === 'rendering' ? 'Rendering now — you can keep editing; save again to queue another render.' : 'Queued — it will render with your latest saved edits.'}</div>` : ''}
+    <div class="actions"><button class="btn pri" onclick="saveClip()" ${busy ? 'disabled' : ''}>${ico('render')}${qs === 'queued' ? 'Save (already queued)' : 'Save & Render'}</button>
     ${c.file ? `<a class="btn" href="${fileUrl(c.file)}" download>${ico('dl')}MP4</a><a class="btn" href="${fileUrl(c.file.replace(/\.mp4$/, '.srt'))}" download>SRT</a>` : ''}
     <button class="btn danger" title="Delete clip" onclick="delClip()" ${busy ? 'disabled' : ''}>${ico('trash')}</button></div>`;
   const tabs = {
@@ -856,8 +862,12 @@ async function saveClip(render = true) {
   else if (render) body.overrides = c.overrides || {};
   delete c._draft;
   if (document.activeElement) document.activeElement.blur();
-  await api(`/api/projects/${CUR}/clips/${c.id}`, {method: 'PATCH', body});
-  toast(render ? 'Rendering…' : 'Saved'); poll(); if (!render) loadProject(true);
+  const r = await api(`/api/projects/${CUR}/clips/${c.id}`, {method: 'PATCH', body});
+  if (!render) toast('Saved');
+  else if (r.merged) toast('Saved — already in the queue, it will render with these edits');
+  else { const ahead = STATE.jobs.filter(j => ['running', 'paused', 'queued'].includes(j.status)).length;
+    toast(ahead ? `Saved — queued (${ahead} job${ahead > 1 ? 's' : ''} ahead)` : 'Saved — rendering'); }
+  await poll(); loadProject(true);
 }
 function copyCap() {
   const P = readPlatforms(), t = PTAB === 'ig' ? P.instagram.caption + '\n\n' + tagstr(P.instagram.hashtags)
@@ -1201,7 +1211,7 @@ async function useCaption(id, i) {
 let YTSEL = {t: null, text: ''};
 function openYouTube() { if (!PROJ) return toast('Open a project first'); sheet('YouTube Studio', '', null); dlg.dataset.kind = 'yt'; dlg.style.width = 'min(1000px,95vw)'; dlg.addEventListener('close', () => { dlg.style.width = ''; dlg.dataset.kind = ''; }, {once: true}); drawYouTube(); }
 function drawYouTube() {
-  const yt = PROJ.youtube || {}, busy = !!PROJ.busy || !!projJob(), cands = yt.candidates || [];
+  const yt = PROJ.youtube || {}, busy = !!PROJ.creating, cands = yt.candidates || [];
   if (YTSEL.t === null && cands[0]) YTSEL.t = cands[0].t;
   if (!YTSEL.text) YTSEL.text = (yt.thumb_texts || [])[0] || '';
   const desc = [yt.description || '', yt.chapters || ''].filter(Boolean).join('\n\n');

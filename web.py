@@ -82,8 +82,8 @@ cs._checks.append(job_check)
 
 # ---------------------------------------------------------------- job queue (one GPU job at a time)
 
-def new_job(kind, project, fn, label):
-    j = {"id": uuid.uuid4().hex[:8], "kind": kind, "project": project, "label": label, "status": "queued",
+def new_job(kind, project, fn, label, ids=None):
+    j = {"id": uuid.uuid4().hex[:8], "kind": kind, "project": project, "label": label, "status": "queued", "ids": ids,
          "progress": 0.0, "log": [], "error": None, "result": None, "created": time.time(), "fn": fn,
          "_pause": False, "_cancel": False}
     JOBS[j["id"]] = j
@@ -97,6 +97,36 @@ def public(j):
 
 def busy(slug):
     return any(j["project"] == slug and j["status"] in ACTIVE for j in JOBS.values())
+
+
+def creating(slug):
+    """An import or "find new moments" is replacing this project's clips: no edits until it's done."""
+    return any(j["project"] == slug and j["kind"] == "create" and j["status"] in ACTIVE for j in JOBS.values())
+
+
+def clip_states(slug):
+    """{clip id: "queued" | "rendering"} from the queue (a whole-project render covers every clip)."""
+    out = {}
+    for j in sorted(JOBS.values(), key=lambda j: j["created"]):
+        if j["project"] != slug or j["kind"] != "render" or j["status"] not in ACTIVE:
+            continue
+        state = "rendering" if j["status"] in ("running", "paused", "stopping") else "queued"
+        for cid in (j["ids"] or ["*"]):
+            if out.get(cid) != "rendering":
+                out[cid] = state
+    return out
+
+
+def queue_render(slug, ids, label, settings=None):
+    """Queue a render; if the same clips are already waiting in the queue, that job will pick up the latest
+    edits when it starts, so don't add another."""
+    for j in JOBS.values():
+        if (j["project"] == slug and j["kind"] == "render" and j["status"] == "queued" and not settings
+                and j.get("_settings") is None and j["ids"] and ids and set(ids) <= set(j["ids"])):
+            return public(j) | {"merged": True}
+    j = new_job("render", slug, lambda j: render_ids(slug, ids, settings), label, ids)
+    JOBS[j["id"]]["_settings"] = settings
+    return j | {"merged": False}
 
 
 def worker():
@@ -265,7 +295,7 @@ async def create(req: Request):
 @app.get("/api/projects/{slug}")
 def get_project(slug: str):
     p = project(slug)
-    return {**p.data, "slug": slug, "busy": busy(slug)}
+    return {**p.data, "slug": slug, "busy": busy(slug), "creating": creating(slug), "queue": clip_states(slug)}
 
 
 @app.get("/api/projects/{slug}/transcript")
@@ -275,8 +305,8 @@ def transcript(slug: str):
 
 
 def editable(slug):
-    if busy(slug):
-        raise HTTPException(409, "this project is rendering; wait for it to finish")
+    if creating(slug):
+        raise HTTPException(409, "this project is still being analyzed; edits open when that finishes")
     return project(slug)
 
 
@@ -303,7 +333,7 @@ async def edit_clip(slug: str, cid: int, req: Request):
         c["overrides"] = {k: v for k, v in body["overrides"].items() if v not in (None, "")}
     p.save()
     if body.get("render", True):
-        return new_job("render", slug, lambda j: render_ids(slug, [cid]), f"Re-render: {c.get('title', '')}")
+        return queue_render(slug, [cid], f"Re-render: {c.get('title', '')}")
     return {"ok": True}
 
 
@@ -330,7 +360,7 @@ async def add_clip(slug: str, req: Request):
         c["caption"] = " ".join(w["w"] for w in p.words[c["i0"]:c["i1"] + 1])[:150]
     p.clips.append(c)
     p.save()
-    return new_job("render", slug, lambda j: render_ids(slug, [c["id"]]), f"New clip: {c['title']}")
+    return queue_render(slug, [c["id"]], f"New clip: {c['title']}")
 
 
 @app.delete("/api/projects/{slug}/clips/{cid}")
@@ -354,7 +384,7 @@ async def rerender(slug: str, req: Request):
     body = await req.json()
     editable(slug)
     settings = body.get("settings") or None
-    return new_job("render", slug, lambda j: render_ids(slug, body.get("ids"), settings), "Re-render all clips")
+    return queue_render(slug, body.get("ids"), "Re-render all clips" if not body.get("ids") else "Re-render clips", settings)
 
 
 @app.post("/api/projects/{slug}/repick")
@@ -557,7 +587,9 @@ def delete_dub(slug: str, cid: int, lang: str):
 
 @app.delete("/api/projects/{slug}")
 def delete_project(slug: str):
-    p = editable(slug)
+    if busy(slug):
+        raise HTTPException(409, "stop or wait for this project's jobs first")
+    p = project(slug)
     shutil.rmtree(p.dir)
     return {"ok": True}
 

@@ -1545,6 +1545,39 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
 
 # ---------------------------------------------------------------- projects
 
+def merge_changes(base, mine, disk):
+    """3-way merge of project data: apply what changed from base to mine onto disk."""
+    out = json.loads(json.dumps(disk))
+    for k in set(base) | set(mine):
+        if k == "clips":
+            continue
+        if k not in mine:
+            out.pop(k, None)
+        elif mine[k] != base.get(k):
+            out[k] = mine[k]
+    bc = {c["id"]: c for c in base.get("clips", [])}
+    mc = {c["id"]: c for c in mine.get("clips", [])}
+    oc = out.setdefault("clips", [])
+    by_id = {c["id"]: c for c in oc}
+    for cid in set(bc) - set(mc):                       # we deleted it
+        oc[:] = [c for c in oc if c["id"] != cid]
+    for cid, c in mc.items():
+        if cid not in bc:                               # we added it
+            if cid not in by_id:
+                oc.append(json.loads(json.dumps(c)))
+            continue
+        d = by_id.get(cid)
+        if d is None:                                   # someone else deleted it meanwhile
+            continue
+        b = bc[cid]
+        for key in set(b) | set(c):
+            if key not in c:
+                d.pop(key, None)
+            elif c[key] != b.get(key):
+                d[key] = json.loads(json.dumps(c[key]))
+    return out
+
+
 class Project:
     """One source video, its transcript, the picked clips and how they were rendered (project.json)."""
 
@@ -1553,6 +1586,7 @@ class Project:
         self.work = self.dir / ".work"
         self.file = self.dir / "project.json"
         self.data = json.loads(self.file.read_text()) if self.file.exists() else {}
+        self._base = json.loads(json.dumps(self.data))   # as loaded: save() writes back only what changed since
         self._words = None
 
     @property
@@ -1570,10 +1604,20 @@ class Project:
         return self._words
 
     def save(self):
+        """Write our changes without losing anyone else's: under a lock, re-read project.json and apply only
+        what this copy changed since it was loaded (per top-level key, and per clip field). Edits made in the
+        web app while a job renders other clips (or the same one) are kept."""
+        import fcntl
         self.dir.mkdir(parents=True, exist_ok=True)
-        tmp = self.file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.data, indent=1, ensure_ascii=False))
-        tmp.replace(self.file)
+        with open(self.dir / ".lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            disk = json.loads(self.file.read_text()) if self.file.exists() else {}
+            merged = merge_changes(self._base, self.data, disk)
+            tmp = self.file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(merged, indent=1, ensure_ascii=False))
+            tmp.replace(self.file)
+        self.data = merged
+        self._base = json.loads(json.dumps(merged))
 
     def clip(self, cid):
         return next(c for c in self.clips if c["id"] == cid)
