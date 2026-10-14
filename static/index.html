@@ -14,6 +14,7 @@
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,"Segoe UI",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--app);color:var(--text);font:12.5px/1.4 var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 button,input,select,textarea{font:inherit;color:var(--text)}
 button{background:none;border:0;cursor:pointer;padding:0}
@@ -232,6 +233,22 @@ table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-
 #splash p{color:#fff;opacity:.55;margin:-14px 0 0;font-size:14px;letter-spacing:.18em;text-transform:uppercase;animation:rise 1s .45s cubic-bezier(.2,.7,.2,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+.cands{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.cands img{height:86px;border-radius:4px;border:2px solid transparent;cursor:pointer;display:block}
+.cands img.on{border-color:var(--sel)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:8px}
+.thumbs figure{margin:0;background:#1b1b1b;border-radius:6px;overflow:hidden} .thumbs img{width:100%;display:block}
+.thumbs figcaption{display:flex;gap:6px;padding:6px;align-items:center} .thumbs figcaption span{flex:1;font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.titles label{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:5px;cursor:pointer} .titles label:hover{background:#2c2c2c}
+.titles input{width:auto;margin-top:2px} .titles .n{color:var(--dim);font-size:11px;margin-left:auto;white-space:nowrap}
+.chat{display:flex;flex-direction:column;gap:4px;margin:6px 0} .chat div{font-size:11.5px;padding:4px 8px;border-radius:8px;max-width:90%}
+.chat .you{background:#2e2e5a;align-self:flex-end} .chat .ai{background:#2a2a2a;color:var(--mut)}
+.capcard{background:#1b1b1b;border:1px solid #2f2f2f;border-radius:6px;padding:8px;margin-top:6px;white-space:pre-wrap;font-size:12px}
+.capcard .row{margin-top:6px}
+.cover{position:relative;width:150px;flex:none} .cover img{width:150px;border-radius:6px;display:block}
+.cover .grid34{position:absolute;left:0;right:0;top:12.5%;bottom:12.5%;border:1.5px dashed #fff9;border-radius:2px;pointer-events:none}
+.safe{position:absolute;pointer-events:none;z-index:2}
+.safe i{position:absolute;background:#ff453a33;border:1px dashed #ff453a99;font:600 10px var(--font);color:#ffb3ae;padding:2px 4px;font-style:normal}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#3a3a3a;border:1px solid #4a4a4a;padding:8px 14px;border-radius:8px;z-index:60;box-shadow:0 8px 24px #0009}
 
 @media (max-width:900px){
@@ -294,6 +311,11 @@ table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
   <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/></symbol>
   <symbol id="i-render" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></symbol>
+  <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.5 5 2.5-5 2.5z" fill="currentColor"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-safe" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M6 6h12M6 17h12M15 9v6" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-6z"/><path d="m12 14 8-10"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 6-5 4 3 3-2 3 3"/></symbol>
 </defs></svg>
 
 <div id="splash" onclick="hideSplash()">
@@ -345,7 +367,8 @@ table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-
           <button class="ib" title="Restyle all clips" onclick="openRestyle()"><svg class="i"><use href="#i-wand"/></svg><svg class="i s"><use href="#i-chev"/></svg></button>
           <button class="ib" title="Playback speed" onclick="cycleRate()"><svg class="i"><use href="#i-speed"/></svg><span class="mut" id="rate" style="font-size:11px">1×</span></button></div>
         <div class="row"><button class="ib playb" title="Play / pause (space)" onclick="togglePlay()"><svg class="i l" id="playIco"><use href="#i-play"/></svg></button><span class="tc" id="tc"></span></div>
-        <div class="row"><button class="ib" title="Full screen" onclick="fullscreen()"><svg class="i"><use href="#i-full"/></svg></button></div>
+        <div class="row"><button class="ib" id="safeB" title="Show Instagram/TikTok safe zones" onclick="toggleSafe()"><svg class="i"><use href="#i-safe"/></svg></button>
+          <button class="ib" title="Full screen" onclick="fullscreen()"><svg class="i"><use href="#i-full"/></svg></button></div>
       </div>
     </section>
     <section class="pane insp">
@@ -353,7 +376,8 @@ table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-
         <button class="ib on" data-t="clip" title="Clip" onclick="itab('clip')"><svg class="i"><use href="#i-film"/></svg></button>
         <button class="ib" data-t="scores" title="Scores" onclick="itab('scores')"><svg class="i"><use href="#i-wheel"/></svg></button>
         <button class="ib" data-t="captions" title="Captions for each platform" onclick="itab('captions')"><svg class="i"><use href="#i-speaker"/></svg></button>
-        <button class="ib" data-t="info" title="Info & performance" onclick="itab('info')"><svg class="i"><use href="#i-info"/></svg></button></div>
+        <button class="ib" data-t="info" title="Info & performance" onclick="itab('info')"><svg class="i"><use href="#i-info"/></svg></button>
+        <button class="ib" data-t="instagram" title="Instagram kit: captions, hashtags, cover" onclick="itab('instagram')"><svg class="i"><use href="#i-ig"/></svg></button></div>
         <div style="flex:1"></div><span class="mut" id="iname" style="overflow:hidden;text-overflow:ellipsis"></span></div>
       <div class="scroll"><div class="ibody" id="ibody"></div></div>
     </section>
@@ -367,6 +391,7 @@ table.t th{color:var(--mut);font-weight:600} table.t td.n{text-align:right;font-
     <button class="ib" title="Restyle all clips" onclick="openRestyle()"><svg class="i"><use href="#i-over"/></svg></button>
     <button class="ib" title="Montage Maker (stitch clips)" onclick="openMontage()"><svg class="i"><use href="#i-montage"/></svg></button>
     <button class="ib" title="Clip sheet & posting schedule" onclick="openSheet()"><svg class="i"><use href="#i-table"/></svg></button>
+    <button class="ib" title="YouTube Studio: titles, description with chapters, thumbnails" onclick="openYouTube()"><svg class="i"><use href="#i-yt"/></svg></button>
     <div class="mid"><button class="ib" title="Previous clip (↑)" onclick="stepClip(-1)"><svg class="i s"><use href="#i-left"/></svg></button>
       <span class="pn" id="pname">—</span><span class="tc" style="font-size:12px" id="pdur"></span>
       <button class="ib" title="Next clip (↓)" onclick="stepClip(1)"><svg class="i s"><use href="#i-right"/></svg></button></div>
@@ -557,6 +582,7 @@ function startAt() { if (SELKIND === 'chapter' && PROJ.map && PROJ.map[SEL]) ret
 function setMode(m) { MODE = m; if (m === 'clip' && !(selClip() && selClip().file)) { toast("This clip isn't rendered yet"); MODE = 'source'; } showViewer(); }
 function hookVideo() {
   VID.addEventListener('timeupdate', updTc);
+  VID.addEventListener('loadedmetadata', () => setTimeout(drawSafe, 50));
   VID.addEventListener('play', () => { $('#playIco').innerHTML = '<use href="#i-pause"/>'; tick(); });
   VID.addEventListener('pause', () => { $('#playIco').innerHTML = '<use href="#i-play"/>'; });
   VID.addEventListener('waiting', () => { if (MODE === 'source') $('#vbadge').textContent = 'Preparing source preview…'; });
@@ -635,6 +661,7 @@ function drawInspector() {
         <div class="methead"><span>Platform / posted</span><span>Views</span><span>Likes</span><span>Comm.</span><span>Shares</span><span>Saves</span><span></span></div>
         <div id="mets">${(c.metrics || []).map(metRow).join('')}</div>
         <div class="actions"><button class="btn" onclick="$('#mets').insertAdjacentHTML('beforeend', metRow({}))">${ico('plus')}Add post</button><button class="btn pri" onclick="saveMets()">Save stats</button></div></div>`,
+    instagram: () => igTab(c, busy),
   };
   B.innerHTML = tabs[ITAB]();
 }
@@ -930,6 +957,109 @@ async function makeMontage() {
   await api(`/api/projects/${CUR}/stitch`, {method: 'POST', body: {ids, order: 'custom', transition: MM.trans}});
   closeMontage(); toast('Stitching… it will appear in the browser under Stitched'); poll();
 }
+
+
+// ------------------------------------------------ jobs the UI waits for
+async function runJob(req, msg) {
+  let j; try { j = await req; } catch { return null; }
+  toast(msg || 'Working…'); await poll();
+  for (let i = 0; i < 600; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+    const x = STATE.jobs.find(x => x.id === j.id) || (await api('/api/state')).jobs.find(x => x.id === j.id);
+    if (x && x.status === 'done') { await loadProject(true); if (dlg.open && dlg.dataset.kind === 'yt') drawYouTube(); return x.result; }
+    if (x && x.status === 'error') { toast(x.error || 'Failed'); return null; }
+  }
+}
+const copyText = t => navigator.clipboard.writeText(t).then(() => toast('Copied'), () => toast('Copy failed'));
+
+// ------------------------------------------------ Instagram kit (inspector tab)
+let IGSEL = {t: null, text: ''};
+function igTab(c, busy) {
+  const ig = c.ig || {}, cov = ig.cover, cands = ig.candidates || [];
+  const hs = ig.hashtags || {};
+  const setTags = (k, n) => hs[k] && hs[k].length ? `<div class="row" style="margin-top:4px"><span class="cap" style="width:78px">${n}</span><span class="grow mut" style="font-size:11.5px">${esc(tagstr(hs[k]))}</span><button class="ib" title="Copy" onclick="copyText(${esc(JSON.stringify(tagstr(hs[k])))})">${ico('copy')}</button></div>` : '';
+  if (IGSEL.t === null || IGSEL.clip !== c.id) IGSEL = {clip: c.id, t: cov ? cov.t : (cands[0] ? cands[0].t : c.start + 1), text: cov ? cov.text : ((ig.cover_texts || [])[0] || c.title)};
+  return `<span class="cap">Reels cover</span>
+    <div class="row" style="align-items:flex-start;margin-top:6px"><div class="cover">${cov ? `<img src="${fileUrl(cov.file)}?v=${cov.v}" alt="cover"><span class="grid34" title="What the profile grid shows (3:4)"></span>` : '<div class="mut" style="width:150px;height:266px;border:1px dashed #444;border-radius:6px;display:grid;place-items:center">no cover yet</div>'}</div>
+      <div class="grow"><label class="f" style="margin-top:0">Cover text</label><input id="cv-text" value="${esc(IGSEL.text)}" oninput="IGSEL.text=this.value">
+        ${(ig.cover_texts || []).length ? `<div class="hooks">${ig.cover_texts.map(t => `<button class="chip" onclick="IGSEL.text=this.textContent;$('#cv-text').value=this.textContent">${esc(t)}</button>`).join('')}</div>` : ''}
+        <label class="f">Style</label><select id="cv-style"><option value="stroke">Bold outline</option><option value="box">Color box</option></select>
+        <div class="actions"><button class="btn pri" onclick="makeCover(${c.id})" ${busy ? 'disabled' : ''}>${ico('image')}Make cover</button>${cov ? `<a class="btn" href="${fileUrl(cov.file)}" download>${ico('dl')}</a>` : ''}</div></div></div>
+    <label class="f">Frame ${cands.length ? '' : '— <a href="#" onclick="findFrames(' + c.id + ');return false">find good frames</a>'}</label>
+    <div class="cands">${cands.map(x => `<img src="${fileUrl(x.file)}?v=${x.v}" class="${Math.abs(x.t - IGSEL.t) < .01 ? 'on' : ''}" onclick="IGSEL.t=${x.t};document.querySelectorAll('.cands img').forEach(i=>i.classList.remove('on'));this.classList.add('on')" title="${ts(x.t)}">`).join('')}
+      ${cands.length ? `<button class="btn ghost" style="height:86px" onclick="findFrames(${c.id})" ${busy ? 'disabled' : ''}>More</button>` : ''}</div>
+    <div class="sect">${ig.captions ? `<div class="row"><span class="cap grow">Caption options</span><button class="btn ghost" onclick="igGen(${c.id})" ${busy ? 'disabled' : ''}>Rewrite all</button></div>
+      ${ig.captions.map((t, i) => `<div class="capcard">${esc(t)}<div class="row"><button class="btn" onclick="useCaption(${c.id},${i})">Use this</button><button class="btn ghost" onclick="copyText(${esc(JSON.stringify(t))})">${ico('copy')}Copy</button></div></div>`).join('')}
+      <div class="chat">${(ig.chat || []).map(m => `<div class="${m.role}">${esc(m.content)}</div>`).join('')}</div>
+      <div class="row"><input id="ig-msg" placeholder="e.g. shorter, more personal, end with a question" onkeydown="if(event.key==='Enter')igRefine(${c.id})"><button class="ib box" title="Refine" onclick="igRefine(${c.id})">${ico('send')}</button></div>
+      <div class="sect"><div class="row"><span class="cap grow">Hashtag sets</span><button class="btn ghost" onclick="copyText(${esc(JSON.stringify(tagstr([...(hs.broad || []), ...(hs.niche || []), ...(hs.community || [])])))})">${ico('copy')}All</button></div>
+        ${setTags('broad', 'Broad')}${setTags('niche', 'Niche')}${setTags('community', 'Community')}</div>
+      <div class="sect"><div class="row"><span class="cap grow">Alt text</span><button class="ib" onclick="copyText(${esc(JSON.stringify(ig.alt_text || ''))})">${ico('copy')}</button></div><p class="mut" style="margin:4px 0">${esc(ig.alt_text)}</p>
+        <div class="row"><span class="cap grow">First comment</span><button class="ib" onclick="copyText(${esc(JSON.stringify(ig.first_comment || ''))})">${ico('copy')}</button></div><p class="mut" style="margin:4px 0">${esc(ig.first_comment)}</p></div>`
+      : `<p class="mut">Get 5 caption options, broad/niche/community hashtag sets, alt text, a first comment and cover titles — written by your local AI in the video's language.</p><button class="btn pri" onclick="igGen(${c.id})" ${busy ? 'disabled' : ''}>${ico('ig')}Write Instagram kit</button>`}</div>`;
+}
+async function igGen(id) { await runJob(api(`/api/projects/${CUR}/clips/${id}/instagram`, {method: 'POST', body: {action: 'generate'}}), 'Writing the Instagram kit…'); }
+async function igRefine(id) { const m = $('#ig-msg').value.trim(); if (!m) return; await runJob(api(`/api/projects/${CUR}/clips/${id}/instagram`, {method: 'POST', body: {action: 'refine', message: m}}), 'Refining captions…'); }
+async function findFrames(id) { await runJob(api(`/api/projects/${CUR}/frames`, {method: 'POST', body: {clip: id}}), 'Finding the best frames…'); IGSEL.t = null; drawInspector(); }
+async function makeCover(id) { await runJob(api(`/api/projects/${CUR}/clips/${id}/cover`, {method: 'POST', body: {t: IGSEL.t, text: $('#cv-text').value, style: $('#cv-style').value}}), 'Making the cover…'); }
+async function useCaption(id, i) {
+  const c = PROJ.clips.find(c => c.id === id), P = pf(c);
+  P.instagram.caption = c.ig.captions[i];
+  const hs = c.ig.hashtags || {}; if (hs.niche) P.instagram.hashtags = [...(hs.broad || []).slice(0, 3), ...(hs.niche || []).slice(0, 4), ...(hs.community || []).slice(0, 1)];
+  await api(`/api/projects/${CUR}/clips/${id}`, {method: 'PATCH', body: {platforms: P, render: false}});
+  toast('Set as the Instagram caption (see the captions tab)'); loadProject(true);
+}
+
+// ------------------------------------------------ YouTube Studio (whole video)
+let YTSEL = {t: null, text: ''};
+function openYouTube() { if (!PROJ) return toast('Open a project first'); sheet('YouTube Studio', '', null); dlg.dataset.kind = 'yt'; dlg.style.width = 'min(1000px,95vw)'; dlg.addEventListener('close', () => { dlg.style.width = ''; dlg.dataset.kind = ''; }, {once: true}); drawYouTube(); }
+function drawYouTube() {
+  const yt = PROJ.youtube || {}, busy = !!PROJ.busy || !!projJob(), cands = yt.candidates || [];
+  if (YTSEL.t === null && cands[0]) YTSEL.t = cands[0].t;
+  if (!YTSEL.text) YTSEL.text = (yt.thumb_texts || [])[0] || '';
+  const desc = [yt.description || '', yt.chapters || ''].filter(Boolean).join('\n\n');
+  $('#dlgB').innerHTML = `${yt.titles ? `<div class="grid2" style="grid-template-columns:1.1fr 1fr;gap:16px">
+    <div><div class="row"><span class="cap grow">Titles — pick one</span><button class="btn ghost" onclick="ytGen()" ${busy ? 'disabled' : ''}>Rewrite all</button></div>
+      <div class="titles">${yt.titles.map((t, i) => `<label><input type="radio" name="ytt" ${i === (yt.chosen || 0) ? 'checked' : ''} onchange="ytSave({chosen:${i}})"><span>${esc(t)}</span><span class="n">${t.length}/70</span></label>`).join('')}</div>
+      <div class="chat">${(yt.chat || []).map(m => `<div class="${m.role}">${esc(m.content)}</div>`).join('')}</div>
+      <div class="row"><input id="yt-msg" placeholder="e.g. more curiosity, mention psychologists, shorter" onkeydown="if(event.key==='Enter')ytRefine()"><button class="ib box" onclick="ytRefine()">${ico('send')}</button></div></div>
+    <div><div class="row"><span class="cap grow">Description (with chapters)</span><button class="ib" onclick="copyText($('#yt-desc').value)">${ico('copy')}</button></div>
+      <textarea id="yt-desc" rows="11">${esc(desc)}</textarea>
+      <div class="row"><span class="cap grow" style="margin-top:8px">Tags</span><button class="ib" onclick="copyText($('#yt-tags').value)">${ico('copy')}</button></div><input id="yt-tags" value="${esc((yt.tags || []).join(', '))}">
+      <div class="row"><span class="cap grow" style="margin-top:8px">Pinned comment</span><button class="ib" onclick="copyText($('#yt-pin').value)">${ico('copy')}</button></div><input id="yt-pin" value="${esc(yt.pinned_comment || '')}">
+      <div class="actions"><button class="btn" onclick="ytSave({description:$('#yt-desc').value,chapters:'',tags:$('#yt-tags').value.split(',').map(x=>x.trim()).filter(Boolean),pinned_comment:$('#yt-pin').value})">Save edits</button>
+        <button class="btn" onclick="copyText((PROJ.youtube.titles[PROJ.youtube.chosen||0]||'')+'\\n\\n'+$('#yt-desc').value+'\\n\\n'+$('#yt-tags').value)">${ico('copy')}Copy title + description + tags</button></div></div></div>`
+    : `<p class="mut">Write 10 title options, a description with chapter timestamps (from the video map), tags and a pinned comment — in the video's language, with your local AI.</p><button class="btn pri" onclick="ytGen()" ${busy ? 'disabled' : ''}>${ico('yt')}Write titles, description & tags</button>`}
+    <div class="sect"><span class="cap">Thumbnail</span>
+      <label class="f">Frame — ${cands.length ? 'pick one' : ''} <a href="#" onclick="ytFrames();return false">${cands.length ? 'find others' : 'find the best frames (eyes open, expressive)'}</a></label>
+      <div class="cands">${cands.map(x => `<img src="${fileUrl(x.file)}?v=${x.v}" class="${Math.abs(x.t - YTSEL.t) < .01 ? 'on' : ''}" onclick="YTSEL.t=${x.t};drawYouTube()" title="${ts(x.t)}">`).join('')}</div>
+      <div class="row" style="align-items:flex-end;gap:8px"><div class="grow"><label class="f">Text (2-4 words)</label><input id="th-text" value="${esc(YTSEL.text)}" oninput="YTSEL.text=this.value"></div>
+        <div><label class="f">Layout</label><select id="th-style"><option value="right">Person right</option><option value="left">Person left</option><option value="box">Color box</option></select></div>
+        <button class="btn pri" onclick="ytThumb()" ${busy || !cands.length ? 'disabled' : ''}>${ico('image')}Make thumbnail</button></div>
+      ${(yt.thumb_texts || []).length ? `<div class="hooks" style="flex-direction:row;flex-wrap:wrap">${yt.thumb_texts.map(t => `<button class="chip" onclick="YTSEL.text=this.textContent;$('#th-text').value=this.textContent">${esc(t)}</button>`).join('')}</div>` : ''}
+      <div class="thumbs">${(yt.thumbs || []).map((t, i) => `<figure><img src="${fileUrl(t.file)}" alt=""><figcaption><span>${esc(t.text)}</span><a class="btn" href="${fileUrl(t.file)}" download>${ico('dl')}</a><button class="btn danger" onclick="ytDelThumb(${i})">${ico('trash')}</button></figcaption></figure>`).reverse().join('')}</div></div>`;
+}
+async function ytGen() { await runJob(api(`/api/projects/${CUR}/youtube`, {method: 'POST', body: {action: 'generate'}}), 'Writing titles, description and tags…'); }
+async function ytRefine() { const m = $('#yt-msg').value.trim(); if (!m) return; await runJob(api(`/api/projects/${CUR}/youtube`, {method: 'POST', body: {action: 'refine', message: m}}), 'Refining titles…'); }
+async function ytFrames() { await runJob(api(`/api/projects/${CUR}/frames`, {method: 'POST', body: {}}), 'Finding the best frames…'); YTSEL.t = null; drawYouTube(); }
+async function ytThumb() { await runJob(api(`/api/projects/${CUR}/thumbnail`, {method: 'POST', body: {t: YTSEL.t, text: $('#th-text').value, style: $('#th-style').value}}), 'Making the thumbnail…'); }
+async function ytSave(f) { await api(`/api/projects/${CUR}/youtube`, {method: 'PUT', body: f}); await loadProject(true); if (dlg.open) drawYouTube(); toast('Saved'); }
+async function ytDelThumb(i) { await api(`/api/projects/${CUR}/thumbnail/${PROJ.youtube.thumbs.length - 1 - i}`, {method: 'DELETE'}); await loadProject(true); drawYouTube(); }
+
+// ------------------------------------------------ safe zones (where the app's buttons and caption sit)
+let SAFE = false;
+function toggleSafe() { SAFE = !SAFE; $('#safeB').classList.toggle('on', SAFE); drawSafe(); }
+function drawSafe() {
+  const old = $('#safe'); if (old) old.remove();
+  if (!SAFE || !VID) return;
+  const st = $('#stage').getBoundingClientRect(), r = VID.getBoundingClientRect();
+  const d = document.createElement('div'); d.id = 'safe'; d.className = 'safe';
+  Object.assign(d.style, {left: (r.left - st.left) + 'px', top: (r.top - st.top) + 'px', width: r.width + 'px', height: r.height + 'px'});
+  d.innerHTML = `<i style="left:0;right:0;top:0;height:9%">top bar</i><i style="right:0;width:15%;top:46%;height:34%">buttons</i>
+    <i style="left:0;right:15%;bottom:0;height:20%">caption · name · audio</i>`;
+  $('#stage').append(d);
+}
+addEventListener('resize', drawSafe);
 
 // ------------------------------------------------ keys + start
 addEventListener('keydown', e => {

@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
 import clipsmith as cs
+import studio
 
 HERE = Path(__file__).resolve().parent
 CLIPS = HERE / "clips"
@@ -334,6 +335,102 @@ def ai_insights():
     return new_job("insights", None, lambda j: cs.insights(CLIPS, s)["ai"], "AI insights")
 
 
+# ---------------------------------------------------------------- YouTube & Instagram tools
+
+def studio_job(slug, label, fn):
+    def run(j):
+        p = project(slug)
+        return fn(p, p.settings)
+    return new_job("studio", slug, run, label)
+
+
+@app.post("/api/projects/{slug}/youtube")
+async def youtube(slug: str, req: Request):
+    body = await req.json()
+    project(slug)
+    if body.get("action") == "refine":
+        msg = (body.get("message") or "").strip()
+        if not msg:
+            raise HTTPException(400, "say how to change the titles")
+        return studio_job(slug, "YouTube: refine titles", lambda p, s: studio.youtube_refine(p, s, msg))
+    return studio_job(slug, "YouTube: titles, description, tags", studio.youtube_package)
+
+
+@app.put("/api/projects/{slug}/youtube")
+async def youtube_save(slug: str, req: Request):
+    body = await req.json()
+    p = editable(slug)
+    yt = p.data.setdefault("youtube", {})
+    for k in ("titles", "chosen", "description", "chapters", "tags", "pinned_comment"):
+        if k in body:
+            yt[k] = body[k]
+    p.save()
+    return yt
+
+
+@app.post("/api/projects/{slug}/frames")
+async def frames(slug: str, req: Request):
+    """Good frames for a thumbnail (whole video) or a Reels cover (one clip)."""
+    body = await req.json()
+    p = project(slug)
+    cid = body.get("clip")
+
+    def run(p, s):
+        if cid is None:
+            res = studio.frame_candidates(p, tag="cand")
+            p.data.setdefault("youtube", {})["candidates"] = res
+        else:
+            c = p.clip(cid)
+            res = studio.frame_candidates(p, c["start"], c["end"], n=6, tag=f"cand{cid}")
+            c.setdefault("ig", {})["candidates"] = res
+        p.save()
+        return res
+    return studio_job(slug, "Finding the best frames", run)
+
+
+@app.post("/api/projects/{slug}/thumbnail")
+async def thumbnail(slug: str, req: Request):
+    body = await req.json()
+    project(slug)
+    t, text, style = float(body.get("t", 0)), (body.get("text") or "").strip(), body.get("style", "right")
+    if not text:
+        raise HTTPException(400, "type the thumbnail text")
+    return studio_job(slug, "Making a thumbnail", lambda p, s: studio.make_thumbnail(p, t, text, style))
+
+
+@app.delete("/api/projects/{slug}/thumbnail/{n}")
+def delete_thumbnail(slug: str, n: int):
+    p = editable(slug)
+    yt = p.data.setdefault("youtube", {})
+    th = yt.get("thumbs", [])
+    if 0 <= n < len(th):
+        (p.dir / th[n]["file"]).unlink(missing_ok=True)
+        del th[n]
+        p.save()
+    return {"ok": True}
+
+
+@app.post("/api/projects/{slug}/clips/{cid}/instagram")
+async def instagram(slug: str, cid: int, req: Request):
+    body = await req.json()
+    project(slug)
+    if body.get("action") == "refine":
+        msg = (body.get("message") or "").strip()
+        if not msg:
+            raise HTTPException(400, "say how to change the captions")
+        return studio_job(slug, "Instagram: refine captions", lambda p, s: studio.instagram_refine(p, s, p.clip(cid), msg))
+    return studio_job(slug, "Instagram: captions, hashtags, alt text",
+                      lambda p, s: studio.instagram_package(p, s, p.clip(cid)))
+
+
+@app.post("/api/projects/{slug}/clips/{cid}/cover")
+async def cover(slug: str, cid: int, req: Request):
+    body = await req.json()
+    project(slug)
+    t, text, style = float(body.get("t", 0)), (body.get("text") or "").strip(), body.get("style", "stroke")
+    return studio_job(slug, "Making a Reels cover", lambda p, s: studio.make_cover(p, p.clip(cid), t, text, style))
+
+
 @app.delete("/api/projects/{slug}")
 def delete_project(slug: str):
     p = editable(slug)
@@ -375,11 +472,11 @@ def media(slug: str, name: str):
     return FileResponse(out)
 
 
-@app.get("/files/{slug}/{name}")
+@app.get("/files/{slug}/{name:path}")
 def files(slug: str, name: str):
     p = project(slug)
     f = (p.dir / name).resolve()
-    if f.parent != p.dir.resolve() or not f.is_file():
+    if f.parent not in (p.dir.resolve(), (p.dir / "studio").resolve()) or not f.is_file():
         raise HTTPException(404)
     return FileResponse(f)
 

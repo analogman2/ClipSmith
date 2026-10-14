@@ -10,6 +10,7 @@ dependencies = [
     "nvidia-cublas-cu12>=12.9.2.10",
     "nvidia-cudnn-cu12>=9,<10",
     "opencv-python-headless>=5.0.0.93",
+    "pillow>=12.3.0",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
     "yt-dlp>=2026.8.19",
