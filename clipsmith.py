@@ -49,9 +49,17 @@ class GpuError(SystemExit):
 # ---------------------------------------------------------------- reporting (CLI prints; the web app hooks in)
 
 _hooks = []
+_checks = []
+
+
+def checkpoint():
+    """Where a job can be paused or stopped (the web app hooks in; a no-op on the command line)."""
+    for c in _checks:
+        c()
 
 
 def log(msg, progress=None):
+    checkpoint()
     print(msg, file=sys.stderr, flush=True)
     for h in _hooks:
         h(msg, progress)
@@ -225,8 +233,11 @@ def transcribe(video, work, model_name, language, force=False):
             log(f"[1/4] transcribing with Whisper {model_name} on the GPU...", 0.05)
             segments, tinfo = pipe.transcribe(audio, batch_size=batch, word_timestamps=True, vad_filter=True,
                                               language=language or None)
-            words = [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)}
-                     for seg in segments for w in (seg.words or []) if w.word.strip()]
+            words = []
+            for seg in segments:
+                checkpoint()
+                words += [{"w": w.word.strip(), "s": round(w.start, 3), "e": round(w.end, 3)}
+                          for w in (seg.words or []) if w.word.strip()]
             break
         except Exception as e:  # noqa: BLE001
             if batch == 4:
@@ -784,6 +795,7 @@ def analyze_faces(video, info, cs, dur):
     fsize = aw * ah * 3
     box = lambda x0, y0, x1, y1: (slice(max(0, int(y0)), min(ah, int(y1))), slice(max(0, int(x0)), min(aw, int(x1))))
     while True:
+        checkpoint()
         buf = proc.stdout.read(fsize)
         if len(buf) < fsize:
             break

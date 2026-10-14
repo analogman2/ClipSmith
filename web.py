@@ -27,32 +27,86 @@ LIBRARY = [Path(p).expanduser() for p in os.environ.get("CLIPSMITH_LIBRARY", "~/
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
 
 app = FastAPI(title="Designer Studio")
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 JOBS = {}            # id -> job dict
 Q = queue.Queue()
+CURRENT = None       # the job the worker is running
+ACTIVE = ("queued", "running", "paused", "stopping")
+
+
+class JobStopped(BaseException):
+    """Raised at a checkpoint when the user stops the job (BaseException so no `except Exception` swallows it)."""
+
+
+def children(pid):
+    """All descendant process ids of pid (ffmpeg, the dubbing voice...)."""
+    kids = []
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                with open(f"/proc/{d}/stat") as f:
+                    ppid = int(f.read().rsplit(")", 1)[1].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+            if ppid == pid:
+                kids.append(int(d))
+    return [x for k in kids for x in [k] + children(k)]
+
+
+def signal_children(sig):
+    for pid in children(os.getpid()):
+        try:
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            pass
+
+
+def job_check():
+    j = CURRENT
+    if j is None or threading.get_ident() != j.get("_tid"):
+        return
+    if j["_cancel"]:
+        raise JobStopped()
+    if j["_pause"]:
+        j["status"] = "paused"
+        while j["_pause"] and not j["_cancel"]:
+            time.sleep(0.3)
+        if j["_cancel"]:
+            raise JobStopped()
+        j["status"] = "running"
+
+
+cs._checks.append(job_check)
 
 
 # ---------------------------------------------------------------- job queue (one GPU job at a time)
 
 def new_job(kind, project, fn, label):
     j = {"id": uuid.uuid4().hex[:8], "kind": kind, "project": project, "label": label, "status": "queued",
-         "progress": 0.0, "log": [], "error": None, "result": None, "created": time.time(), "fn": fn}
+         "progress": 0.0, "log": [], "error": None, "result": None, "created": time.time(), "fn": fn,
+         "_pause": False, "_cancel": False}
     JOBS[j["id"]] = j
     Q.put(j)
     return public(j)
 
 
 def public(j):
-    return {k: v for k, v in j.items() if k != "fn"} | {"log": j["log"][-40:]}
+    return {k: v for k, v in j.items() if k != "fn" and not k.startswith("_")} | {"log": j["log"][-40:]}
 
 
 def busy(slug):
-    return any(j["project"] == slug and j["status"] in ("queued", "running") for j in JOBS.values())
+    return any(j["project"] == slug and j["status"] in ACTIVE for j in JOBS.values())
 
 
 def worker():
+    global CURRENT
     while True:
         j = Q.get()
-        j["status"], j["started"] = "running", time.time()
+        if j["_cancel"]:                 # stopped while it was waiting in the queue
+            continue
+        j["status"], j["started"], j["_tid"] = "running", time.time(), threading.get_ident()
+        CURRENT = j
 
         def hook(msg, progress, j=j):
             j["log"].append(msg)
@@ -62,17 +116,59 @@ def worker():
         try:
             j["result"] = j["fn"](j)
             j["status"], j["progress"] = "done", 1.0
+        except JobStopped:
+            j["status"] = "stopped"
+            j["log"].append("Stopped. Clips finished before the stop are kept.")
         except SystemExit as e:          # clipsmith's friendly errors (GPU full, no speech, ...)
-            j["status"], j["error"] = "error", str(e)
+            j["status"], j["error"] = ("stopped", None) if j["_cancel"] else ("error", str(e))
         except Exception as e:  # noqa: BLE001
-            j["status"], j["error"] = "error", f"{e}"
-            j["log"].append(traceback.format_exc()[-2000:])
+            if j["_cancel"]:             # a helper we killed on stop made this step fail
+                j["status"] = "stopped"
+                j["log"].append("Stopped. Clips finished before the stop are kept.")
+            else:
+                j["status"], j["error"] = "error", f"{e}"
+                j["log"].append(traceback.format_exc()[-2000:])
         finally:
             cs._hooks.remove(hook)
             j["finished"] = time.time()
+            CURRENT = None
 
 
 threading.Thread(target=worker, daemon=True).start()
+
+
+@app.post("/api/jobs/{jid}/{action}")
+def job_action(jid: str, action: str):
+    """pause / resume / stop a job. Pause freezes running helpers (ffmpeg, the dubbing voice) right away and
+    the job itself at its next step; stop ends it (or drops it from the queue) and keeps finished clips."""
+    import signal
+    j = JOBS.get(jid)
+    if j is None:
+        raise HTTPException(404, "no such job")
+    st = j["status"]
+    if action == "pause" and st == "running":
+        j["_pause"] = True
+        j["status"] = "paused"
+        if j is CURRENT:
+            signal_children(signal.SIGSTOP)
+    elif action == "resume" and st == "paused":
+        j["_pause"] = False
+        j["status"] = "running"
+        if j is CURRENT:
+            signal_children(signal.SIGCONT)
+    elif action == "stop" and st in ACTIVE:
+        j["_cancel"], j["_pause"] = True, False
+        if st == "queued":
+            j["status"], j["finished"] = "stopped", time.time()
+            j["log"].append("Removed from the queue.")
+        else:
+            j["status"] = "stopping"
+            if j is CURRENT:
+                signal_children(signal.SIGCONT)
+                signal_children(signal.SIGTERM)
+    else:
+        raise HTTPException(409, f"can't {action} a job that is {st}")
+    return public(j)
 
 
 # ---------------------------------------------------------------- helpers
