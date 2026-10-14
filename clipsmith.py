@@ -126,6 +126,7 @@ class Settings:
     encoder: str = "auto"
     maxrate: str = "16M"
     scenes: bool = True              # reset framing at camera cuts, layout per scene
+    look: str = "natural"            # color grade: see LOOKS
     vision: bool = True              # a vision model looks at each scene (layout, burned-in subtitles)
     vision_model: str = "qwen3.5:9b"
 
@@ -1086,6 +1087,18 @@ def write_srt(path, ws):
 
 # ---------------------------------------------------------------- rendering
 
+# Color grades ("looks"): a fixed, safe set of ffmpeg filters the AI or the user can choose from.
+LOOKS = {
+    "natural": "",
+    "bright": "eq=brightness=0.035:gamma=1.04:saturation=1.06",
+    "warm": "colorbalance=rs=0.05:gs=0.015:bs=-0.05:rm=0.03:bm=-0.03,eq=saturation=1.06",
+    "cool": "colorbalance=rs=-0.04:bs=0.05:bm=0.03,eq=saturation=0.98",
+    "vivid": "eq=saturation=1.28:contrast=1.06",
+    "cinematic": "curves=preset=medium_contrast,colorbalance=rs=-0.03:bs=0.04:rh=0.05:bh=-0.04,eq=saturation=0.92",
+    "moody": "eq=brightness=-0.035:contrast=1.12:saturation=0.82,vignette=angle=PI/5",
+    "bw": "hue=s=0,eq=contrast=1.15",
+}
+
 def fesc(p):
     """Escape a path for use inside an ffmpeg filtergraph option."""
     return str(p).replace("\\", "\\\\\\\\").replace(":", "\\\\:").replace("'", "\\\\\\'").replace(",", "\\,")
@@ -1457,9 +1470,28 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
                      f"afade=t=in:d=0.012,afade=t=out:st={fo:.4f}:d=0.012[at{i}]")
             cat += f"[at{i}]"
     g.append(f"{cat}concat=n={n}:v=1:a={1 if has_a else 0}[vc]" + ("[ac]" if has_a else ""))
-    g.append(f"[vc]subtitles=f={fesc(ass.name)}:fontsdir={fesc(fonts.resolve())}[vsub]")
+    # look (color grade) and AI B-roll cutaways go under the captions
+    vcur = "vc"
+    look = LOOKS.get(s.look, "")
+    if look:
+        g.append(f"[vc]{look}[vlook]")
+        vcur = "vlook"
+    broll = [b for b in (clip.get("broll") or []) if b.get("on", True) and b.get("file") and Path(b["file"]).exists()
+             and b["start"] < tl.length - 0.3]
+    for k, b in enumerate(broll):
+        d = max(0.8, min(b.get("dur", 2.4), tl.length - b["start"] - 0.05))
+        inputs += ["-loop", "1", "-framerate", f"{fps:.4f}", "-t", f"{d:.3f}", "-i", str(Path(b["file"]).resolve())]
+        idx = 1 + k
+        pan = ("(iw-ow)*t/" if k % 2 == 0 else "(iw-ow)*(1-t/") + f"{d:.3f}" + (")" if k % 2 else "")
+        g.append(f"[{idx}:v]scale={int(ow * 1.14)}:{int(oh * 1.14)}:force_original_aspect_ratio=increase,"
+                 f"crop={ow}:{oh}:x='{pan}':y='(ih-oh)/2',setsar=1,format=yuva420p,"
+                 f"fade=t=in:st=0:d=0.22:alpha=1,fade=t=out:st={d - 0.22:.3f}:d=0.22:alpha=1,"
+                 f"setpts=PTS-STARTPTS+{b['start']:.3f}/TB[br{k}]")
+        g.append(f"[{vcur}][br{k}]overlay=0:0:enable='between(t,{b['start']:.3f},{b['start'] + d:.3f})':eof_action=pass[vb{k}]")
+        vcur = f"vb{k}"
+    g.append(f"[{vcur}]subtitles=f={fesc(ass.name)}:fontsdir={fesc(fonts.resolve())}[vsub]")
 
-    vlast, nin = "vsub", 1
+    vlast, nin = "vsub", 1 + len(broll)
     if dub:                                     # the new voice is already on the output timeline
         inputs += ["-i", str(Path(dub["wav"]).resolve())]
         g.append(f"[{nin}:a]aresample=48000,apad,atrim=0:{tl.length:.3f}[ac]")

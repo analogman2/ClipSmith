@@ -355,6 +355,10 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 @media (prefers-reduced-motion:reduce){#splash *,dialog[open],#mm.open{animation:none!important}}
 
 /* HUD toast, like the macOS volume bezel */
+.speed{display:flex;align-items:center;gap:1px;background:var(--field);border-radius:8px;padding:0 2px 0 7px;height:28px;color:var(--text2)}
+.speed .ib{min-width:22px;height:24px;padding:0 3px} .speed svg.i.s:first-child{margin-right:3px}
+#rate{font:500 11.5px var(--font);font-variant-numeric:tabular-nums;min-width:36px;text-align:center;color:var(--text);cursor:default}
+#rate.changed{color:var(--accent)}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -403,6 +407,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 11-11m-2-2 4 4"/><path d="M17 3v3m-1.5-1.5h3M20 8v2m-1-1h2M11 3v2m-1-1h2"/></symbol>
   <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4.5 16a8 8 0 1 1 15 0"/><path d="m12 13 4-5"/><circle cx="12" cy="13" r="1.2"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
@@ -485,7 +490,10 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
       <div class="transport">
         <div class="row"><button class="ib" title="Layouts" onclick="fxCat='Layouts';drawFx()"><svg class="i"><use href="#i-transform"/></svg><svg class="i s"><use href="#i-chev"/></svg></button>
           <button class="ib" title="Restyle all clips" onclick="openRestyle()"><svg class="i"><use href="#i-wand"/></svg><svg class="i s"><use href="#i-chev"/></svg></button>
-          <button class="ib" title="Playback speed" onclick="cycleRate()"><svg class="i"><use href="#i-speed"/></svg><span class="mut" id="rate" style="font-size:11px">1×</span></button></div>
+          <div class="speed" title="Playback speed"><svg class="i s"><use href="#i-speed"/></svg>
+            <button class="ib" title="Slower (−10%)" onclick="nudgeRate(-0.1)"><svg class="i s"><use href="#i-chev"/></svg></button>
+            <span id="rate" ondblclick="nudgeRate(1 - RATE)" title="Double-click to reset to 100%">100%</span>
+            <button class="ib" title="Faster (+10%)" onclick="nudgeRate(0.1)"><svg class="i s"><use href="#i-up"/></svg></button></div></div>
         <div class="row"><button class="ib playb" title="Play / pause (space)" onclick="togglePlay()"><svg class="i l" id="playIco"><use href="#i-play"/></svg></button><span class="tc" id="tc"></span></div>
         <div class="row"><button class="ib" id="safeB" title="Show Instagram/TikTok safe zones" onclick="toggleSafe()"><svg class="i"><use href="#i-safe"/></svg></button>
           <button class="ib" title="Full screen" onclick="fullscreen()"><svg class="i"><use href="#i-full"/></svg></button></div>
@@ -732,7 +740,7 @@ function startAt() { if (SELKIND === 'chapter' && PROJ.map && PROJ.map[SEL]) ret
 function setMode(m) { MODE = m; if (m === 'clip' && !(selClip() && selClip().file)) { toast("This clip isn't rendered yet"); MODE = 'source'; } showViewer(); }
 function hookVideo() {
   VID.addEventListener('timeupdate', updTc);
-  VID.addEventListener('loadedmetadata', () => setTimeout(drawSafe, 50));
+  VID.addEventListener('loadedmetadata', () => { VID.playbackRate = RATE; setTimeout(drawSafe, 50); });
   VID.addEventListener('play', () => { $('#playIco').innerHTML = '<use href="#i-pause"/>'; tick(); });
   VID.addEventListener('pause', () => { $('#playIco').innerHTML = '<use href="#i-play"/>'; });
   VID.addEventListener('waiting', () => { if (MODE === 'source') $('#vbadge').textContent = 'Preparing source preview…'; });
@@ -747,7 +755,13 @@ function updTc() {
   placePlayhead();
 }
 function togglePlay() { if (!VID) return; VID.paused ? VID.play() : VID.pause(); }
-function cycleRate() { if (!VID) return; const r = [1, 1.5, 2, 0.5]; const i = (r.indexOf(VID.playbackRate) + 1) % r.length; VID.playbackRate = r[i]; $('#rate').textContent = r[i] + '×'; }
+let RATE = 1;
+function nudgeRate(d) {   // 10% steps, 10%–400%
+  RATE = Math.min(4, Math.max(0.1, Math.round((RATE + d) * 10) / 10));
+  if (VID) { VID.playbackRate = RATE; VID.defaultPlaybackRate = RATE; }
+  $('#rate').textContent = Math.round(RATE * 100) + '%';
+  $('#rate').classList.toggle('changed', RATE !== 1);
+}
 function fullscreen() { if (VID && VID.requestFullscreen) VID.requestFullscreen(); }
 function shareSel() { const c = selClip(); if (c && c.file) { const a = document.createElement('a'); a.href = fileUrl(c.file); a.download = c.file; a.click(); } else toast('Select a rendered clip to download'); }
 
