@@ -327,7 +327,7 @@ async def edit_clip(slug: str, cid: int, req: Request):
         c = p.clip(cid)
     except StopIteration:
         raise HTTPException(404, "no such clip")
-    for k in ("title", "caption", "hashtags", "keywords", "platforms", "topic", "metrics"):
+    for k in ("title", "caption", "hashtags", "keywords", "platforms", "topic", "metrics", "broll"):
         if k in body:
             c[k] = body[k]
     if "platforms" in body:     # the Instagram caption is the clip's main caption
@@ -592,6 +592,221 @@ def delete_dub(slug: str, cid: int, lang: str):
             (p.dir / d["file"]).with_suffix(ext).unlink(missing_ok=True)
     p.save()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- Clip Generator (guided path)
+
+def gen_job(slug, label, fn, kind="gen"):
+    def run(j):
+        p = project(slug) if slug else None
+        return fn(p)
+    return new_job(kind, slug, run, label)
+
+
+@app.post("/api/gen/analyze")
+async def gen_analyze(req: Request):
+    """Step 1: transcribe, map and find the moments (no rendering yet)."""
+    body = await req.json()
+    source = (body.get("source") or "").strip()
+    if not source:
+        raise HTTPException(400, "pick a video first")
+    s = cs.Settings.from_dict({**meta()["defaults"], "count": int(body.get("count") or 5),
+                               "prompt": (body.get("prompt") or "").strip(), "max": float(body.get("max") or 60)})
+
+    def run(j):
+        p = cs.create_project(source, CLIPS, s, reselect=True)
+        j["project"] = p.dir.name
+        return {"slug": p.dir.name}
+    label = Path(source).name if "://" not in source else source
+    return new_job("create", cs.slug(Path(source).stem) if "://" not in source else None, run, f"Analyze: {label}")
+
+
+@app.post("/api/gen/broll")
+async def gen_broll(req: Request):
+    import generator
+    body = await req.json()
+    slug, cid = body["slug"], int(body["clip"])
+    project(slug)
+    if body.get("redraw") is not None:
+        k = int(body["redraw"])
+        return gen_job(slug, "B-roll: new image", lambda p: generator.broll_redraw(p, p.clip(cid), k, body.get("prompt")))
+    return gen_job(slug, "B-roll: choosing and drawing",
+                   lambda p: generator.broll_from_ideas(p, p.clip(cid)) if p.clip(cid).get("broll_ideas")
+                   else generator.broll_suggest(p, p.clip(cid), int(body.get("count") or 3)))
+
+
+@app.post("/api/gen/look")
+async def gen_look(req: Request):
+    import generator
+    body = await req.json()
+    slug, cid = body["slug"], int(body["clip"])
+    project(slug)
+    return gen_job(slug, "Choosing a look", lambda p: generator.pick_look(p, p.clip(cid)))
+
+
+@app.post("/api/gen/finish")
+async def gen_finish(req: Request):
+    """Last step: apply the chosen style to the chosen clips and queue their renders (and dubs)."""
+    import dub
+    body = await req.json()
+    slug, ids = body["slug"], [int(i) for i in body.get("ids") or []]
+    p = editable(slug)
+    style = {k: v for k, v in (body.get("style") or {}).items() if k in ("captions", "look", "aspect", "layout") and v}
+    for c in p.clips:
+        if c["id"] in ids:
+            c["overrides"] = {**c.get("overrides", {}), **style}
+    p.save()
+    jobs = [queue_render(slug, ids, "Rendering your short" + ("s" if len(ids) > 1 else ""))]
+    lang = body.get("dub")
+    if lang and lang in dub.DUB_LANGS:
+        for cid in ids:
+            jobs.append(studio_job(slug, f"Dub into {dub.DUB_LANGS[lang]}: {p.clip(cid).get('title', '')}",
+                                   lambda p, s, cid=cid: dub.dub_clip(p, p.clip(cid), lang)))
+    for cid in ids:     # the Instagram kit (captions, hashtags, alt text) for the export screen
+        if not p.clip(cid).get("ig"):
+            jobs.append(studio_job(slug, f"Instagram: {p.clip(cid).get('title', '')}",
+                                   lambda p, s, cid=cid: studio.instagram_package(p, s, p.clip(cid))))
+    return {"jobs": jobs}
+
+
+# No video: AI Shorts
+@app.post("/api/shorts")
+async def shorts_new(req: Request):
+    import generator
+    body = await req.json()
+    if not (body.get("description") or body.get("url")):
+        raise HTTPException(400, "describe the video or paste a link")
+    sh = generator.Short()
+    sh.data.update({k: body.get(k) for k in ("description", "url", "language", "seconds", "actor", "voice", "audience")})
+    sh.save()
+    j = new_job("gen", None, lambda j: generator.write_script(generator.Short(sh.id)), "Writing your script")
+    return {"id": sh.id, "job": j}
+
+
+def short(sid):
+    import generator
+    if not sid.isalnum():
+        raise HTTPException(404)
+    sh = generator.Short(sid)
+    if not sh.file.exists():
+        raise HTTPException(404, "no such short")
+    return sh
+
+
+@app.get("/api/shorts/{sid}")
+def shorts_get(sid: str):
+    sh = short(sid)
+    d = dict(sh.data)
+    for k in ("portraits",):
+        d[k] = [Path(x).name for x in d.get(k, [])]
+    for k in ("portrait", "voice_wav", "video"):
+        if d.get(k):
+            d[k] = Path(d[k]).name
+    return d
+
+
+@app.put("/api/shorts/{sid}")
+async def shorts_put(sid: str, req: Request):
+    body = await req.json()
+    sh = short(sid)
+    for k in ("script", "actor", "voice", "language", "seconds"):
+        if k in body:
+            sh.data[k] = body[k]
+    if body.get("portrait"):
+        f = sh.dir / Path(body["portrait"]).name
+        if f.exists():
+            sh.data["portrait"] = str(f)
+    sh.save()
+    return shorts_get(sid)
+
+
+@app.post("/api/shorts/{sid}/{step}")
+async def shorts_step(sid: str, step: str, req: Request):
+    import generator
+    sh = short(sid)
+    if step == "portraits":
+        return new_job("gen", None, lambda j: generator.portraits(generator.Short(sid)), "Creating your AI actor")
+    if step == "voice":
+        return new_job("gen", None, lambda j: generator.record_voice(generator.Short(sid)), "Recording the voice")
+    if step == "video":
+        def run(j):
+            s2 = generator.Short(sid)
+            generator.make_video(s2)
+            slug = generator.make_project(s2, CLIPS)
+            j["project"] = slug
+            return {"slug": slug}
+        return new_job("gen", None, run, "Animating your AI actor")
+    if step == "photo":                                # your own photo instead of an AI actor
+        form = await req.form()
+        up = form["file"]
+        sh.dir.mkdir(parents=True, exist_ok=True)
+        dest = sh.dir / f"upload_{uuid.uuid4().hex[:6]}{Path(up.filename or 'photo.png').suffix or '.png'}"
+        dest.write_bytes(await up.read())
+        sh.data.setdefault("portraits", []).insert(0, str(dest))
+        sh.data["portrait"] = str(dest)
+        sh.save()
+        return shorts_get(sid)
+    raise HTTPException(404)
+
+
+@app.get("/api/shorts/{sid}/file/{name}")
+def shorts_file(sid: str, name: str):
+    sh = short(sid)
+    f = (sh.dir / name).resolve()
+    if f.parent != sh.dir.resolve() or not f.is_file():
+        raise HTTPException(404)
+    return FileResponse(f)
+
+
+# ---------------------------------------------------------------- Instagram posting
+
+@app.get("/api/instagram")
+def ig_status():
+    import instagram
+    return instagram.status()
+
+
+@app.post("/api/instagram/connect")
+async def ig_connect(req: Request):
+    import instagram
+    body = await req.json()
+    if not (body.get("token") or "").strip():
+        raise HTTPException(400, "paste your access token")
+    try:
+        return instagram.connect(body["token"], body.get("user_id", ""))
+    except SystemExit as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/instagram")
+def ig_disconnect():
+    import instagram
+    return instagram.disconnect()
+
+
+@app.post("/api/projects/{slug}/clips/{cid}/post")
+async def ig_post(slug: str, cid: int, req: Request):
+    """Post a rendered clip (or one of its dubs) to Instagram as a Reel. The UI asks you to confirm first."""
+    import instagram
+    body = await req.json()
+    p = project(slug)
+    c = p.clip(cid)
+    lang = body.get("dub")
+    f = (c.get("dubs", {}).get(lang) or {}).get("file") if lang else c.get("file")
+    if not f:
+        raise HTTPException(400, "render the clip first")
+    caption = (body.get("caption") or "").strip()
+    cover_ms = int(float(body.get("cover_ms") or 1200))
+
+    def run(p, s):
+        r = instagram.post_reel(p.dir / f, caption, cover_ms)
+        c2 = p.clip(cid)
+        c2.setdefault("posts", []).append({**r, "platform": "instagram", "dub": lang or ""})
+        c2.setdefault("metrics", []).append({"platform": "instagram", "posted_at": time.strftime("%Y-%m-%dT%H:%M"),
+                                             "views": 0, "likes": 0, "comments": 0, "shares": 0, "saves": 0})
+        p.save()
+        return r
+    return studio_job(slug, f"Instagram: posting {c.get('title', '')}", run)
 
 
 @app.delete("/api/projects/{slug}")

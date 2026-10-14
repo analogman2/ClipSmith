@@ -354,6 +354,19 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 #splash .pear{width:min(150px,32vw);height:auto;animation:rise 1.1s var(--sp) both}
 #splash h1{color:#fff;font:600 clamp(30px,6vw,52px)/1.1 var(--font);letter-spacing:-.02em;margin:0;animation:rise 1.1s .25s var(--sp) both}
 #splash p{color:#fff;opacity:.5;margin:-14px 0 0;font-size:14px;letter-spacing:.2em;text-transform:uppercase;font-weight:500;animation:rise 1.1s .45s var(--sp) both}
+#splash .choices{display:flex;gap:22px;margin-top:26px;flex-wrap:wrap;justify-content:center;padding:0 20px}
+#splash .choice{width:min(300px,82vw);text-align:left;padding:22px 24px;border-radius:18px;background:rgba(255,255,255,.035);color:#fff;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);display:flex;flex-direction:column;gap:8px;cursor:default;
+  opacity:0;animation:illuminate 2.4s var(--d,2s) var(--ease) forwards;transition:background .3s,box-shadow .3s,transform .25s var(--sp)}
+#splash .choice .ct{font-size:19px;font-weight:600;letter-spacing:-.01em}
+#splash .choice .cs{font-size:13px;line-height:1.45;color:rgba(255,255,255,.6)}
+#splash .choice:hover{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55),0 0 40px rgba(255,255,255,.18);transform:translateY(-2px)}
+#splash .choice:active{transform:scale(.98)}
+#splash .choice:focus-visible{outline:none;box-shadow:inset 0 0 0 2px #fff,0 0 40px rgba(255,255,255,.25)}
+@keyframes illuminate{0%{opacity:0;transform:translateY(8px);box-shadow:inset 0 0 0 1px rgba(255,255,255,0)}
+  55%{opacity:1;transform:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),0 0 46px rgba(255,255,255,.22)}
+  100%{opacity:1;transform:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 0 18px rgba(255,255,255,.06)}}
+@media (prefers-reduced-motion:reduce){#splash .choice{animation:none;opacity:1}}
 @keyframes rise{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#splash *,dialog[open],#mm.open{animation:none!important}}
 
@@ -382,6 +395,57 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 .twhen{font-size:11px;color:var(--text3);white-space:nowrap;margin-top:2px}
 .tdet summary{font-size:11.5px;padding:2px 0} .tdet .log{margin-top:4px}
 .tempty{text-align:center;padding:28px 10px;color:var(--text2)} .tempty svg{margin:0 auto 8px;color:var(--text3)} .tempty p{margin:0 0 4px;font-weight:600;color:var(--text)}
+#gen{position:fixed;inset:0;z-index:80;background:var(--bg);display:none;flex-direction:column}
+#gen.open{display:flex;animation:fadeIn .3s var(--ease)}
+.ghead{display:flex;align-items:center;gap:12px;padding:14px 22px;background:var(--pane2);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:inset 0 -1px 0 var(--hair)}
+.ghead h1{flex:1;margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em;text-align:center}
+.ghead .x{width:30px;height:30px;border-radius:50%;background:var(--field);color:var(--text);display:grid;place-items:center}
+.gbodyw{flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0}
+#gside{background:var(--sidebar);padding:18px 14px;box-shadow:inset -1px 0 0 var(--hair);overflow:auto}
+.gpath{margin-bottom:18px}
+.gsteps{list-style:none;margin:0;padding:0} .gsteps li{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:9px;color:var(--text2);font-weight:500}
+.gsteps li.on{background:var(--accent);color:#fff} .gsteps li.done{color:var(--text)}
+.gn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11.5px;font-weight:700;background:var(--field2);flex:none}
+.gsteps li.on .gn{background:rgba(255,255,255,.25)} .gsteps li.done .gn{background:var(--green);color:#fff}
+#gmain{overflow:auto;padding:34px 30px 40px}
+.gwrap{max-width:860px;margin:0 auto} .gwrap h2{font-size:26px;letter-spacing:-.02em;margin:0 0 6px} .gsub{color:var(--text2);font-size:14px;margin:0 0 22px;line-height:1.5}
+.gfoot{display:flex;align-items:center;gap:10px;padding:14px 22px;background:var(--pane2);box-shadow:inset 0 1px 0 var(--hair)}
+.gfoot .btn{height:34px;padding:0 20px;font-size:13.5px;border-radius:9px}
+.glist{max-height:44vh}
+.gdrop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:34px;margin-top:12px;border-radius:14px;background:var(--field);box-shadow:inset 0 0 0 2px dashed var(--hair2);cursor:default;text-align:center}
+.gdrop input{display:none} .gdrop span:first-child{color:var(--accent)}
+.gprog{display:flex;flex-direction:column;align-items:center;gap:10px;padding:36px 0}
+.gring{--p:0;width:150px;height:150px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--field2) 0);display:grid;place-items:center;transition:background .6s}
+.gring b{width:122px;height:122px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:30px;font-weight:600;letter-spacing:-.02em}
+.gstep{font-size:16px;font-weight:600;margin-top:6px} .gctl{display:flex;gap:6px;margin-top:6px} .gctl .ib{background:var(--field);border-radius:50%;width:32px;height:32px}
+.gjobs{width:min(420px,90%);margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.gmoments{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.gmom{display:flex;gap:12px;background:var(--field);border-radius:14px;padding:10px;cursor:default;box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .15s}
+.gmom.on{box-shadow:inset 0 0 0 2px var(--accent);background:var(--accent-weak)}
+.gth{width:84px;aspect-ratio:9/16;border-radius:9px;background:#000 center/cover;position:relative;flex:none}
+.gscore{position:absolute;left:5px;bottom:5px;font-weight:700;font-size:12px;color:#fff;background:rgba(0,0,0,.55);border-radius:20px;padding:1px 7px;box-shadow:inset 0 0 0 1.5px var(--rc)}
+.gcheck{position:absolute;right:5px;top:5px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+.gmom:not(.on) .gcheck{background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7)}
+.gmb{min-width:0} .gmb b{display:block;font-size:13.5px;line-height:1.3} .gmb p{font-size:12px;color:var(--text2);margin:6px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.gmb .btn{height:24px;padding:0 9px;font-size:12px}
+.gpv{display:block;max-height:60vh;margin:18px auto 0;border-radius:14px;background:#000}
+.ghook{background:var(--field);border-radius:14px;padding:14px;margin-bottom:12px}
+.gtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px 10px;margin-top:6px}
+.gtiles .fxt .pv{background-size:cover;background-position:center 30%}
+.gopts{display:grid;gap:10px} .gopt{display:block;padding:16px;border-radius:14px;background:var(--field);box-shadow:inset 0 0 0 2px transparent;cursor:default}
+.gopt.on{box-shadow:inset 0 0 0 2px var(--accent);background:var(--accent-weak)} .gopt input{float:right} .gopt b{display:block;font-size:14px;margin-bottom:3px}
+.gswitch{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;margin-bottom:14px} .gswitch.sm{font-size:12px;font-weight:500;margin:0;gap:6px}
+.gbr{background:var(--field);border-radius:14px;padding:14px;margin-bottom:12px}
+.gbrs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px}
+.gbi img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:10px;display:block} .gbi .mut{font-size:11px;margin:5px 0} .gbi.off img{opacity:.35}
+.gshare{display:flex;gap:20px;background:var(--field);border-radius:16px;padding:16px;margin-bottom:16px;flex-wrap:wrap}
+.gshare video{width:230px;border-radius:12px;background:#000;align-self:flex-start} .gshare h3{margin:2px 0 10px;font-size:17px}
+.gsec{margin-top:14px} .gposted{color:var(--green);font-weight:600;margin:8px 0 0}
+.gports{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px}
+.gports img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;box-shadow:0 0 0 3px transparent;transition:box-shadow .15s}
+.gports img.on{box-shadow:0 0 0 3px var(--accent)}
+.gready{display:flex;gap:16px;align-items:center;background:var(--field);border-radius:14px;padding:14px} .gready img{width:110px;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
+@media (max-width:900px){.gbodyw{grid-template-columns:1fr} #gside{display:none} #gmain{padding:20px 16px}}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -464,7 +528,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 6-5 4 3 3-2 3 3"/></symbol>
 </defs></svg>
 
-<div id="splash" onclick="hideSplash()">
+<div id="splash">
   <svg class="pear" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="White pear with a bite taken out">
     <defs><mask id="bite"><rect width="200" height="260" fill="#fff"/>
       <circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs>
@@ -473,11 +537,21 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   </svg>
   <h1>Designer Studio</h1>
   <p>Long videos into shorts</p>
+  <div class="choices">
+    <button class="choice" onclick="enterGenerator()" style="--d:2.1s">
+      <span class="ct">Clip Generator</span>
+      <span class="cs">Guided, step by step: from your video (or no video at all) to a finished short</span>
+    </button>
+    <button class="choice" onclick="enterStudio()" style="--d:2.6s">
+      <span class="ct">Clip Studio</span>
+      <span class="cs">The full editor: every clip, the timeline and all the tools</span>
+    </button>
+  </div>
 </div>
 
 <div id="app">
   <div class="tb">
-    <div class="brand"><svg viewBox="0 0 200 260"><defs><mask id="bite2"><rect width="200" height="260" fill="#fff"/><circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs><path mask="url(#bite2)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/><path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/></svg>Designer Studio</div>
+    <div class="brand" onclick="showSplash()" title="Home"><svg viewBox="0 0 200 260"><defs><mask id="bite2"><rect width="200" height="260" fill="#fff"/><circle cx="159" cy="116" r="19" fill="#000"/><circle cx="155" cy="142" r="22" fill="#000"/><circle cx="161" cy="168" r="18" fill="#000"/></mask></defs><path mask="url(#bite2)" fill="#fff" d="M100 44C82 44 75 62 73 82C71 104 47 124 45 168C43 214 70 246 100 246C130 246 157 214 155 168C153 124 129 104 127 82C125 62 118 44 100 44Z"/><path d="M101 46C100 32 104 21 113 12" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/></svg>Designer Studio</div>
     <div class="grp">
       <button class="ib" title="New clips from a video" onclick="openNew()"><svg class="i"><use href="#i-plus"/></svg></button>
       <button class="ib" title="Import / upload a video" onclick="openNew('up')"><svg class="i"><use href="#i-import"/></svg></button>
@@ -566,6 +640,10 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 <dialog id="dlg"><div class="sheet"><div class="sh" id="dlgT"></div><div class="sb" id="dlgB"></div>
   <div class="sf"><button class="btn ghost" onclick="dlg.close()" id="dlgC">Cancel</button><button class="btn pri" id="dlgGo">OK</button></div></div></dialog>
 
+<div id="gen"><div class="ghead"><button class="x" onclick="closeGenerator();showSplash()" title="Back to start"><svg class="i s"><use href="#i-x"/></svg></button><h1>Clip Generator</h1>
+  <button class="btn ghost" onclick="closeGenerator()">Open Clip Studio</button></div>
+  <div class="gbodyw"><aside id="gside"></aside><main id="gmain"></main></div><div class="gfoot" id="gfoot"></div></div>
+
 <div id="mm">
   <div class="mmh"><button class="x" onclick="closeMontage()" title="Close (Esc)"><svg class="i s"><use href="#i-x"/></svg></button><h2>Montage Maker</h2><button class="add" onclick="makeMontage()">Add to Timeline</button></div>
   <div class="mmv"><video id="mmv" controls playsinline></video></div>
@@ -622,8 +700,13 @@ function cycleTheme() {
 try { applyTheme(localStorage.getItem('ds-theme') || ''); } catch {}
 
 // ------------------------------------------------ splash + layout
-function hideSplash() { const s = $('#splash'); if (s && !s.classList.contains('out')) { s.classList.add('out'); setTimeout(() => s.remove(), 700); } }
-setTimeout(hideSplash, 2200);
+function hideSplash() { const s = $('#splash'); if (s && !s.classList.contains('out')) s.classList.add('out'); }
+function showSplash() {   // the pear in the toolbar brings you back here
+  const s = $('#splash'); if (!s) return;
+  s.classList.remove('out'); s.querySelectorAll('.choice').forEach(c => { c.style.animation = 'none'; c.offsetHeight; c.style.animation = ''; c.style.setProperty('--d', '.2s'); });
+}
+function enterStudio() { hideSplash(); if (typeof closeGenerator === 'function') closeGenerator(); }
+function enterGenerator() { hideSplash(); openGenerator(); }
 function lay(cls, b) { $('#app').classList.toggle(cls); b.classList.toggle('on'); setTimeout(() => PROJ && drawTimeline(), 60); }
 
 // ------------------------------------------------ polling / background tasks
@@ -680,6 +763,7 @@ function jobInfo(j) {
     else if (/^YouTube/.test(L)) { icon = 'yt'; kind = 'YouTube'; title = L.split(': ')[1] || name; }
     else if (/^Instagram/.test(L)) { icon = 'ig'; kind = 'Instagram'; title = L.split(': ')[1] || name; }
     else { icon = 'image'; kind = name; title = L; }
+  } else if (j.kind === 'gen') { icon = 'wand'; kind = L.split(':')[0]; title = L.includes(':') ? L.split(': ')[1] : 'Clip Generator';
   } else if (j.kind === 'render') { kind = L.startsWith('New clip') ? 'New clip' : L.startsWith('Re-render all') ? 'Restyling all clips' : 'Rendering'; if (L.startsWith('Re-render all')) title = 'All clips'; }
   return {icon, title, kind};
 }
@@ -694,7 +778,10 @@ function friendlyStep(j) {
   const map = [[/downloading/, 'Downloading the video'], [/transcrib/, 'Listening to the video'], [/transcript: cached/, 'Transcript ready'],
     [/mapping/, 'Mapping the story'], [/reading transcript|candidates|moments:/, 'Finding the best moments'], [/\[dub\] translating/, 'Translating'],
     [/\[dub\] (cloning|voice model)/, 'Preparing the voice'], [/\[dub\] timing the captions/, 'Timing the captions'], [/\[dub\] timing/, 'Matching the timing'],
-    [/\[dub\] rendering/, 'Rendering'], [/\[stitch\]/, 'Joining clips'], [/\[youtube\]/, 'Writing'], [/\[instagram\]/, 'Writing'], [/\[frames\]/, 'Picking frames']];
+    [/\[dub\] rendering/, 'Rendering'], [/\[stitch\]/, 'Joining clips'], [/\[youtube\]/, 'Writing'], [/\[instagram\]/, 'Writing'], [/\[frames\]/, 'Picking frames'],
+    [/\[broll\] choosing/, 'Choosing moments for B-roll'], [/\[broll\] drawing image (\d+)\/(\d+)/, 'Drawing images'], [/\[broll\]/, 'Drawing images'],
+    [/\[script\] reading/, 'Reading the web page'], [/\[script\]/, 'Writing the script'], [/\[actor\]/, 'Drawing your presenter'],
+    [/\[voice\]|\[dub\] line/, 'Recording the voice'], [/\[video\] animating/, 'Animating the presenter'], [/\[video\] putting/, 'Putting it together']];
   for (const [re, t] of map) if (re.test(l)) return t;
   return j.status === 'running' ? 'Working' : '';
 }
@@ -1344,6 +1431,290 @@ function drawSafe() {
   $('#stage').append(d);
 }
 addEventListener('resize', drawSafe);
+
+// ------------------------------------------------ Clip Generator (guided path)
+const GSTEPS = {video: ['Video', 'Analyze', 'Moments', 'Hook', 'Look', 'Voice', 'B-roll', 'Create', 'Share'],
+  ai: ['Idea', 'Script', 'Actor', 'Voice', 'Video', 'Look', 'B-roll', 'Create', 'Share']};
+const LOOK_NAMES = {natural: 'Natural', bright: 'Bright', warm: 'Warm', cool: 'Cool', vivid: 'Vivid', cinematic: 'Cinematic', moody: 'Moody', bw: 'Black & white'};
+const LOOK_CSS = {natural: 'none', bright: 'brightness(1.08) saturate(1.06)', warm: 'sepia(.18) saturate(1.12) hue-rotate(-6deg)', cool: 'saturate(.95) hue-rotate(8deg) brightness(1.02)',
+  vivid: 'saturate(1.35) contrast(1.06)', cinematic: 'contrast(1.12) saturate(.88) sepia(.08)', moody: 'brightness(.9) contrast(1.15) saturate(.78)', bw: 'grayscale(1) contrast(1.15)'};
+let G = null;
+function freshG(path = 'video') { return {path, step: 0, src: null, srcName: '', srcTab: 'lib', slug: null, sel: [], style: {captions: 'bold', look: 'natural', aspect: '9:16'},
+  dub: '', broll: true, sid: null, short: null, prompt: '', count: 3, jobs: [], busy: null, lookWhy: '', posted: {}}; }
+function openGenerator() { if (!G) G = freshG(); $('#gen').classList.add('open'); drawGen(); }
+function closeGenerator() { $('#gen').classList.remove('open'); }
+const gStepName = () => GSTEPS[G.path][G.step];
+const gProj = () => PROJ && PROJ.slug === G.slug ? PROJ : null;
+async function gLoad() { if (G.slug) { CUR = G.slug; await loadProject(true); drawTree(); } }
+function gSetPath(p) { if (G.step > 0 && !confirm('Start over with the other path?')) return; G = freshG(p); drawGen(); }
+function drawSide() {
+  const steps = GSTEPS[G.path];
+  $('#gside').innerHTML = `<div class="gpath segc">${[['video', 'From my video'], ['ai', 'No video']].map(([k, n]) => `<button class="${G.path === k ? 'on' : ''}" onclick="gSetPath('${k}')">${n}</button>`).join('')}</div>
+    <ol class="gsteps">${steps.map((n, i) => `<li class="${i < G.step ? 'done' : i === G.step ? 'on' : ''}"><span class="gn">${i < G.step ? '✓' : i + 1}</span>${n}</li>`).join('')}</ol>`;
+}
+function drawGen() {
+  const name = gStepName();
+  const fn = {Video: gVideo, Analyze: gWait, Moments: gMoments, Hook: gHook, Look: gLook, Voice: G.path === 'ai' ? gAiVoice : gVoice, 'B-roll': gBroll,
+    Create: gCreate, Share: gShare, Idea: gIdea, Script: gScript, Actor: gActor}[name] || (name === 'Video' ? gVideo : gAiVideo);
+  if (G.path === 'ai' && name === 'Video') return gAiVideo();
+  fn();
+}
+function gFrame(title, sub, body, next = 'Continue', nextFn = 'gNext()', backOk = true) {
+  drawSide();
+  $('#gmain').innerHTML = `<div class="gwrap"><h2>${title}</h2>${sub ? `<p class="gsub">${sub}</p>` : ''}<div class="gbody">${body}</div></div>`;
+  $('#gfoot').innerHTML = `<button class="btn ghost" onclick="gBack()" ${backOk && G.step > 0 && !G.busy ? '' : 'disabled'}>Back</button><span class="grow"></span>
+    ${next ? `<button class="btn pri gnext" onclick="${nextFn}" ${G.busy ? 'disabled' : ''}>${next}</button>` : ''}`;
+}
+function gBack() { if (G.busy) return; G.step = Math.max(0, G.step - 1); if (['Analyze', 'Create'].includes(gStepName())) G.step--; drawGen(); }
+function gNext() { G.step++; drawGen(); }
+// a job with a big, friendly progress view; resolves with the job
+async function gRun(req, title, sub) {
+  let j; try { j = await req; } catch { return null; }
+  if (j.job) j = j.job;
+  G.busy = j.id;
+  const draw = x => gFrame(title, sub, `<div class="gprog"><div class="gring" style="--p:${Math.round((x ? x.progress : 0) * 100)}"><b>${Math.round((x ? x.progress : 0) * 100)}%</b></div>
+      <div class="gstep">${esc(x ? friendlyStep(x) : 'Starting…')}</div><div class="mut">${esc(x ? timeLeft(x) : '')}</div>
+      ${x && x.status === 'queued' ? '<div class="mut">Waiting for the job ahead of it to finish.</div>' : ''}
+      <div class="gctl">${x ? jobButtons(x) : ''}</div></div>`, null);
+  draw(null);
+  while (true) {
+    await new Promise(r => setTimeout(r, 1000));
+    const st = await api('/api/state'); STATE = st; drawTasks();
+    const x = st.jobs.find(y => y.id === j.id);
+    if (!x) { G.busy = null; return null; }
+    if (x.status === 'done') { G.busy = null; return x; }
+    if (['error', 'stopped'].includes(x.status)) { G.busy = null; toast(x.status === 'error' ? friendlyError(x.error) : 'Stopped'); return null; }
+    if (gStepName() && $('#gmain .gprog')) draw(x);
+  }
+}
+
+// ---- From my video
+function gVideo() {
+  gFrame('Choose your video', 'Pick a video from your library, upload one, or paste a link.',
+    `<div class="segc gsrc">${[['lib', 'My videos'], ['up', 'Upload'], ['url', 'Link']].map(([k, n]) => `<button class="${G.srcTab === k ? 'on' : ''}" onclick="G.srcTab='${k}';drawGen()">${n}</button>`).join('')}</div>
+    ${G.srcTab === 'lib' ? `<div class="search" style="margin:12px 0 8px">${ico('search')}<input id="gq" placeholder="Search" oninput="gLib()"></div><div class="list glist" id="glib"><div class="mut">Loading…</div></div>`
+      : G.srcTab === 'up' ? `<label class="gdrop"><input type="file" accept="video/*" id="gfile" onchange="G.srcName=this.files[0]?.name||'';$('#gdropn').textContent=G.srcName||'Choose a video file'"><span>${ico('import', 'l')}</span><b id="gdropn">${esc(G.srcName || 'Choose a video file')}</b><span class="mut">MP4, MOV, MKV…</span></label>`
+      : `<input id="gurl" placeholder="https://www.youtube.com/watch?v=…" value="${esc(G.src && G.src.startsWith('http') ? G.src : '')}" style="margin-top:12px">`}
+    <div class="grid2" style="margin-top:16px"><div><label class="f">What should the shorts be about? (optional)</label><input id="gprompt" value="${esc(G.prompt)}" placeholder="e.g. the best tips, the funniest moments"></div>
+      <div><label class="f">How many moments to find</label><select id="gcount">${[1, 2, 3, 5, 8].map(n => `<option ${n === G.count ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>`,
+    'Analyze video', 'gStartAnalyze()');
+  if (G.srcTab === 'lib') api('/api/library').then(l => { LIB = l; gLib(); });
+}
+function gLib() {
+  const q = ($('#gq') || {}).value?.toLowerCase() || '', el = $('#glib'); if (!el) return;
+  el.innerHTML = LIB.map((v, i) => ({...v, i})).filter(v => !q || v.name.toLowerCase().includes(q)).slice(0, 200).map(v =>
+    `<div class="${G.src === v.path ? 'on' : ''}" onclick="G.src=LIB[${v.i}].path;G.srcName=LIB[${v.i}].name;gLib()">${ico('film')}<span style="flex:1;min-width:0"><b style="word-break:break-all">${esc(v.name)}</b><br><small>${esc(v.folder)}</small></span>${v.project ? '<span class="tag">has clips</span>' : ''}</div>`).join('') || '<div class="mut">No videos found.</div>';
+}
+async function gStartAnalyze() {
+  G.prompt = $('#gprompt').value.trim(); G.count = +$('#gcount').value;
+  let source = G.srcTab === 'lib' ? G.src : G.srcTab === 'url' ? $('#gurl').value.trim() : null;
+  if (G.srcTab === 'up') {
+    const f = $('#gfile').files[0]; if (!f) return toast('Choose a video file');
+    const fd = new FormData(); fd.append('file', f); toast('Uploading…');
+    source = (await api('/api/upload', {method: 'POST', body: fd, headers: {}})).path;
+  }
+  if (!source) return toast('Pick a video first');
+  G.src = source; G.step = 1;
+  const j = await gRun(api('/api/gen/analyze', {method: 'POST', body: {source, prompt: G.prompt, count: G.count}}), 'Analyzing your video', 'Listening, mapping the story and finding the moments that work best as shorts.');
+  if (!j) { G.step = 0; return drawGen(); }
+  G.slug = (j.result && j.result.slug) || j.project; await gLoad();
+  G.sel = clipsSorted().slice(0, 1).map(c => c.id); G.step = 2; drawGen();
+}
+function gWait() { gFrame('Working…', '', '<div class="gprog"><div class="mut">Please wait.</div></div>', null); }
+function gMoments() {
+  const P = gProj(); if (!P) { gLoad().then(drawGen); return gWait(); }
+  const cs = clipsSorted();
+  gFrame('Pick your moments', 'The AI scored each moment for how likely it is to hold attention. Pick one or more.',
+    `<div class="gmoments">${cs.map(c => { const on = G.sel.includes(c.id), sc = c.scores || {};
+      return `<div class="gmom ${on ? 'on' : ''}" onclick="gToggle(${c.id})"><div class="gth" style="background-image:url('/api/projects/${G.slug}/frame/${Math.round((c.start + 1.5) * 10)}')">
+        <span class="gscore" style="--rc:${ringColor(c.score || 0)}">${c.score || '–'}</span><span class="gcheck">${on ? '✓' : ''}</span></div>
+        <div class="gmb"><b>${esc(c.title)}</b><div class="mut">${Math.round(c.end - c.start)}s · ${esc(c.topic || '')}</div><p>${esc(c.why || '')}</p>
+        <button class="btn ghost" onclick="event.stopPropagation();gPreview(${c.start},${c.end})">${ico('play')}Preview</button></div></div>`; }).join('')}</div>
+    <video id="gpv" class="gpv" controls playsinline hidden></video>`, G.sel.length ? `Continue with ${G.sel.length}` : 'Pick a moment', 'gMomentsNext()');
+}
+function gToggle(id) { G.sel = G.sel.includes(id) ? G.sel.filter(x => x !== id) : [...G.sel, id]; gMoments(); }
+function gPreview(a, b) { const v = $('#gpv'); v.hidden = false; v.src = `/api/projects/${G.slug}/media/proxy.mp4#t=${a},${b}`; v.play().catch(() => {}); v.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }
+function gMomentsNext() { if (!G.sel.length) return toast('Pick at least one moment'); gNext(); }
+function gHook() {
+  const cs = G.sel.map(id => PROJ.clips.find(c => c.id === id));
+  gFrame('Choose the hook', 'The words on screen in the first seconds. Pick one of the AI’s options or write your own.',
+    cs.map(c => `<div class="ghook"><div class="mut" style="margin-bottom:6px">${esc((c.why || '').slice(0, 120))}</div>
+      <input id="gh${c.id}" value="${esc(c.title)}">
+      <div class="hooks" style="flex-direction:row;flex-wrap:wrap">${(c.hooks || []).map(h => `<button class="chip ${h === c.title ? 'on' : ''}" onclick="$('#gh${c.id}').value=this.textContent;this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on')">${esc(h)}</button>`).join('')}</div></div>`).join(''),
+    'Continue', 'gHookNext()');
+}
+async function gHookNext() {
+  for (const id of G.sel) { const v = $('#gh' + id).value.trim(); const c = PROJ.clips.find(c => c.id === id); if (v && v !== c.title) await api(`/api/projects/${G.slug}/clips/${id}`, {method: 'PATCH', body: {title: v, render: false}}); }
+  await gLoad(); gNext();
+}
+function gLook() {
+  const c = PROJ && PROJ.clips.find(x => x.id === G.sel[0]), fr = c ? `/api/projects/${G.slug}/frame/${Math.round((c.start + 1.5) * 10)}` : '';
+  gFrame('Choose the look', 'Caption style, color and format. You can change any of it later in Clip Studio.',
+    `<label class="f">Captions</label><div class="gtiles">${META.captions.map(x => `<div class="fxt ${G.style.captions === x ? 'on' : ''}" onclick="G.style.captions='${x}';gLook()">
+        <div class="pv" style="background-image:linear-gradient(rgba(0,0,0,.05),rgba(0,0,0,.35)),url('${fr}')">${fxPreview(x)}</div><div class="nm">${x === 'none' ? 'No captions' : x[0].toUpperCase() + x.slice(1)}</div></div>`).join('')}</div>
+     <div class="row" style="margin-top:14px"><label class="f grow" style="margin:0">Color</label><button class="btn ghost" onclick="gAiLook()">${ico('wand')}Let AI choose</button></div>
+     ${G.lookWhy ? `<p class="mut" style="margin:6px 0 0">${esc(G.lookWhy.split(/(?<=[.!?])\s/)[0])}</p>` : ''}
+     <div class="gtiles">${Object.keys(LOOK_NAMES).map(x => `<div class="fxt ${G.style.look === x ? 'on' : ''}" onclick="G.style.look='${x}';gLook()">
+        <div class="pv" style="background-image:url('${fr}');filter:${LOOK_CSS[x]}"></div><div class="nm">${LOOK_NAMES[x]}</div></div>`).join('')}</div>
+     <label class="f" style="margin-top:14px">Format</label><div class="segc" style="max-width:420px">${[['9:16', 'Reels · Shorts'], ['4:5', 'Feed 4:5'], ['1:1', 'Square']].map(([k, n]) => `<button class="${G.style.aspect === k ? 'on' : ''}" onclick="G.style.aspect='${k}';gLook()">${n}</button>`).join('')}</div>`);
+}
+async function gAiLook() {
+  const j = await gRun(api('/api/gen/look', {method: 'POST', body: {slug: G.slug, clip: G.sel[0]}}), 'Choosing a look', 'The AI looks at your video and picks a color grade.');
+  if (j && j.result) { G.style.look = j.result.look; G.lookWhy = j.result.why; }
+  gLook();
+}
+function gVoice() {
+  const langs = Object.entries(META.dub_langs || {}).filter(([k]) => k !== (PROJ && PROJ.language));
+  gFrame('Voice', 'Keep the original voice, or also make a version in another language, spoken in the same voice.',
+    `<div class="gopts"><label class="gopt ${!G.dub ? 'on' : ''}"><input type="radio" name="gv" ${!G.dub ? 'checked' : ''} onchange="G.dub='';gVoice()"><b>Keep the original voice</b><span class="mut">Your short uses the audio as recorded.</span></label>
+      <label class="gopt ${G.dub ? 'on' : ''}"><input type="radio" name="gv" ${G.dub ? 'checked' : ''} onchange="G.dub='${langs[0] ? langs[0][0] : ''}';gVoice()"><b>Also dub it</b><span class="mut">Translated and re-voiced in the speaker’s own cloned voice, with new captions.</span>
+        ${G.dub ? `<select onchange="G.dub=this.value" style="margin-top:8px;max-width:260px">${langs.map(([k, n]) => `<option value="${k}" ${k === G.dub ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}</label></div>`);
+}
+async function gBroll() {
+  const cs = G.sel.map(id => PROJ.clips.find(c => c.id === id));
+  gFrame('B-roll', 'Short AI-made cutaway images with a slow pan, shown while the speaker talks about something visual.',
+    `<label class="gswitch"><input type="checkbox" ${G.broll ? 'checked' : ''} onchange="G.broll=this.checked;gBroll()"> Add AI B-roll</label>
+    ${G.broll ? cs.map(c => `<div class="gbr"><div class="row"><b class="grow">${esc(c.title)}</b><button class="btn ghost" onclick="gMakeBroll(${c.id})">${ico('wand')}${(c.broll || []).length ? 'Make new ones' : 'Create B-roll'}</button></div>
+      <div class="gbrs">${(c.broll || []).map((b, k) => `<div class="gbi ${b.on === false ? 'off' : ''}"><img src="/files/${G.slug}/studio/${b.file.split('/').pop()}" alt="">
+        <div class="mut">${b.start.toFixed(1)}s${b.line ? ' · “' + esc(b.line.slice(0, 60)) + '…”' : ''}</div>
+        <div class="row"><label class="gswitch sm"><input type="checkbox" ${b.on === false ? '' : 'checked'} onchange="gBrollOn(${c.id},${k},this.checked)"> Use</label>
+        <button class="btn ghost" style="height:24px" onclick="gRedraw(${c.id},${k})">Redraw</button></div></div>`).join('') || '<p class="mut">No B-roll yet.</p>'}</div></div>`).join('') : ''}`,
+    'Continue', 'gNext()');
+}
+async function gMakeBroll(id) { const j = await gRun(api('/api/gen/broll', {method: 'POST', body: {slug: G.slug, clip: id}}), 'Creating B-roll', 'Choosing moments and drawing images with your local AI (about 15 seconds each).'); await gLoad(); gBroll(); }
+async function gRedraw(id, k) { const j = await gRun(api('/api/gen/broll', {method: 'POST', body: {slug: G.slug, clip: id, redraw: k}}), 'Drawing a new image', ''); await gLoad(); gBroll(); }
+async function gBrollOn(id, k, on) { const c = PROJ.clips.find(c => c.id === id); c.broll[k].on = on; await api(`/api/projects/${G.slug}/clips/${id}`, {method: 'PATCH', body: {broll: c.broll, render: false}}); }
+async function gCreate() {
+  gFrame('Creating your short', '', '<div class="gprog"><div class="mut">Starting…</div></div>', null, '', false);
+  if (!G.broll) for (const id of G.sel) { const c = PROJ.clips.find(c => c.id === id); if ((c.broll || []).length) await api(`/api/projects/${G.slug}/clips/${id}`, {method: 'PATCH', body: {broll: c.broll.map(b => ({...b, on: false})), render: false}}); }
+  const r = await api('/api/gen/finish', {method: 'POST', body: {slug: G.slug, ids: G.sel, style: G.style, dub: G.dub}});
+  G.jobs = r.jobs.map(j => j.id); G.busy = 'create';
+  while (true) {
+    const st = await api('/api/state'); STATE = st; drawTasks();
+    const js = G.jobs.map(id => st.jobs.find(j => j.id === id)).filter(Boolean);
+    const p = js.reduce((a, j) => a + (j.status === 'done' ? 1 : ACTIVE.includes(j.status) ? j.progress : 1), 0) / Math.max(1, js.length);
+    const cur = js.find(j => ['running', 'paused'].includes(j.status)) || js.find(j => j.status === 'queued');
+    gFrame('Creating your short', 'Rendering the video with your hook, captions, look and B-roll' + (G.dub ? ', then the dubbed version' : '') + '.',
+      `<div class="gprog"><div class="gring" style="--p:${Math.round(p * 100)}"><b>${Math.round(p * 100)}%</b></div><div class="gstep">${esc(cur ? (jobInfo(cur).kind === friendlyStep(cur) || cur.kind === 'render' ? friendlyStep(cur) : jobInfo(cur).kind + ' · ' + friendlyStep(cur)) : 'Finishing')}</div>
+      <div class="gjobs">${js.map(j => `<div class="row"><span class="tmark ${j.status === 'done' ? 'done' : j.status === 'error' ? 'error' : ''}">${j.status === 'done' ? '✓' : j.status === 'error' ? '!' : ''}</span><span class="grow">${esc(j.kind === 'studio' && /^Instagram/.test(j.label) ? 'Writing captions & hashtags' : j.kind === 'render' ? 'Rendering the video' : jobInfo(j).kind)}</span><span class="mut">${j.status === 'done' ? 'Done' : j.status === 'queued' ? 'Waiting' : j.status === 'error' ? friendlyError(j.error) : Math.round(j.progress * 100) + '%'}</span></div>`).join('')}</div></div>`, null, '', false);
+    if (js.every(j => !ACTIVE.includes(j.status))) break;
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  G.busy = null; await gLoad(); G.step = GSTEPS[G.path].indexOf('Share'); drawGen();
+}
+async function gShare() {
+  const ig = await api('/api/instagram'); G.ig = ig;
+  const cs = G.sel.map(id => PROJ.clips.find(c => c.id === id)).filter(Boolean);
+  gFrame('Your short is ready', 'Download it, or post it straight to Instagram.',
+    cs.map(c => { const P = pf(c), kit = c.ig || {}, cap = (kit.captions || [P.instagram.caption])[0] || '', tags = tagstr(P.instagram.hashtags.length ? P.instagram.hashtags : [...((kit.hashtags || {}).broad || []).slice(0, 3), ...((kit.hashtags || {}).niche || []).slice(0, 4)]);
+      const files = [[c.file, PROJ.language || 'Original'], ...Object.entries(c.dubs || {}).map(([k, d]) => [d.file, (META.dub_langs || {})[k] || k])].filter(x => x[0]);
+      const posted = (c.posts || []).filter(x => x.permalink);
+      return `<div class="gshare"><video src="${fileUrl(c.file)}?v=${c.rendered || 0}" controls playsinline></video><div class="grow">
+        <h3>${esc(c.title)}</h3>
+        <div class="gsec"><span class="cap">Export</span><div class="actions" style="margin-top:6px">${files.map(([f, n]) => `<a class="btn" href="${fileUrl(f)}" download>${ico('dl')}${files.length > 1 ? esc(n) : 'Download MP4'}</a>`).join('')}
+          <button class="btn ghost" onclick="copyText(${esc(JSON.stringify(cap + '\n\n' + tags))})">${ico('copy')}Copy caption</button></div></div>
+        <div class="gsec"><span class="cap">Post to Instagram</span>
+        ${!ig.connected ? `<p class="mut" style="margin:6px 0">Connect your Instagram Creator or Business account once. You need an access token from Meta’s developer dashboard (Instagram API). It stays on this computer.</p>
+          <div class="grid2"><input id="igtok" type="password" placeholder="Access token" autocomplete="off"><input id="iguid" placeholder="Instagram user ID (optional)"></div>
+          <div class="actions"><button class="btn" onclick="gIgConnect()">Connect Instagram</button></div>`
+        : `<textarea id="igcap${c.id}" rows="5" style="margin-top:6px">${esc(cap + '\n\n' + tags)}</textarea>
+          ${files.length > 1 ? `<select id="igv${c.id}" style="margin-top:6px;max-width:240px">${files.map(([f, n], i) => `<option value="${i === 0 ? '' : Object.keys(c.dubs)[i - 1]}">${esc(n)} version</option>`).join('')}</select>` : ''}
+          <div class="actions"><button class="btn pri" onclick="gPost(${c.id})">${ico('ig')}Post to @${esc(ig.username)}</button><span class="mut" style="align-self:center;font-size:11.5px">Posts publicly as a Reel. You’ll be asked to confirm.</span></div>`}
+        ${posted.map(x => `<p class="gposted">✓ Posted · <a href="${esc(x.permalink)}" target="_blank" rel="noopener">View on Instagram</a></p>`).join('')}</div></div></div>`; }).join('') +
+    `<div class="actions" style="justify-content:center;margin-top:18px"><button class="btn ghost" onclick="G=freshG(G.path);drawGen()">Make another</button><button class="btn" onclick="closeGenerator();openProject('${G.slug}')">Open in Clip Studio</button></div>`, null);
+}
+async function gIgConnect() {
+  const token = $('#igtok').value.trim(); if (!token) return toast('Paste your access token');
+  try { const r = await api('/api/instagram/connect', {method: 'POST', body: {token, user_id: $('#iguid').value.trim()}}); toast('Connected as @' + r.username); } catch { return; }
+  gShare();
+}
+async function gPost(id) {
+  const c = PROJ.clips.find(c => c.id === id), caption = $('#igcap' + id).value.trim(), dubl = $('#igv' + id) ? $('#igv' + id).value : '';
+  if (!confirm(`Post “${c.title}” to Instagram as @${G.ig.username} now? It will be public.`)) return;
+  const j = await gRun(api(`/api/projects/${G.slug}/clips/${id}/post`, {method: 'POST', body: {caption, dub: dubl, cover_ms: 1200}}), 'Posting to Instagram', 'Uploading your Reel and waiting for Instagram to process it.');
+  if (j) toast('Posted to Instagram');
+  await gLoad(); gShare();
+}
+
+// ---- No video (AI Shorts)
+function gIdea() {
+  const langs = Object.entries(META.dub_langs || {});
+  const sh = (G.short || {});
+  gFrame('What’s the video about?', 'Describe it, or paste a link to a product or web page. The AI writes the script and an AI actor presents it.',
+    `<label class="f">Description</label><textarea id="gdesc" rows="4" placeholder="e.g. Our coaching program helps therapists get clients from Instagram in 30 days">${esc(sh.description || '')}</textarea>
+     <label class="f">Web page (optional)</label><input id="gurl2" placeholder="https://…" value="${esc(sh.url || '')}">
+     <div class="grid3"><div><label class="f">Audience</label><input id="gaud" placeholder="e.g. new therapists" value="${esc(sh.audience || '')}"></div>
+       <div><label class="f">Language</label><select id="glang">${langs.map(([k, n]) => `<option value="${k}" ${k === (sh.language || 'en') ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+       <div><label class="f">Length</label><select id="gsec">${[20, 30, 45].map(n => `<option ${n === (sh.seconds || 30) ? 'selected' : ''} value="${n}">${n} seconds</option>`).join('')}</select></div></div>`,
+    'Write the script', 'gWrite()');
+}
+async function gWrite() {
+  const body = {description: $('#gdesc').value.trim(), url: $('#gurl2').value.trim(), audience: $('#gaud').value.trim(), language: $('#glang').value, seconds: +$('#gsec').value};
+  if (!body.description && !body.url) return toast('Describe the video or paste a link');
+  G.short = body; G.step = 1;
+  const r = await api('/api/shorts', {method: 'POST', body}); G.sid = r.id;
+  const j = await gRun(Promise.resolve(r.job), 'Writing your script', 'Hook, problem, solution and a call to action, in your chosen language.');
+  if (!j) { G.step = 0; return drawGen(); }
+  G.short = await api('/api/shorts/' + G.sid); drawGen();
+}
+function gScript() {
+  const sc = (G.short || {}).script; if (!sc) return gIdea();
+  const label = {hook: 'Hook', problem: 'Problem', solution: 'Solution', cta: 'Call to action'};
+  gFrame('Your script', 'Edit anything. Each line is one breath for the actor.',
+    `<label class="f">On-screen title</label><input id="gst" value="${esc(sc.title)}">
+     ${sc.segments.map((sg, i) => `<label class="f">${label[sg.part] || sg.part}</label><textarea id="gsg${i}" rows="${Math.max(2, sg.lines.length + 1)}">${esc(sg.lines.join('\n'))}</textarea>`).join('')}
+     <p class="mut" style="margin-top:10px">About ${Math.round(sc.segments.reduce((a, s) => a + s.lines.join(' ').split(/\s+/).length, 0) / 2.4)} seconds.</p>`,
+    'Continue', 'gScriptNext()');
+}
+async function gScriptNext() {
+  const sc = G.short.script; sc.title = $('#gst').value.trim();
+  sc.segments.forEach((sg, i) => { sg.lines = $('#gsg' + i).value.split('\n').map(x => x.trim()).filter(Boolean); });
+  G.short = await api('/api/shorts/' + G.sid, {method: 'PUT', body: {script: sc}}); gNext();
+}
+const ACTORS = ['a friendly woman in her 30s with a warm smile', 'a confident man in his 40s, an expert', 'an energetic young creator in their 20s', 'a calm, professional woman in her 50s'];
+function gActor() {
+  const sh = G.short || {}, ps = sh.portraits || [];
+  gFrame('Choose your presenter', 'Describe the AI actor and create a few options, or use your own photo.',
+    `<label class="f">Who presents it</label><input id="gact" value="${esc(sh.actor || ACTORS[0])}">
+     <div class="hooks" style="flex-direction:row;flex-wrap:wrap">${ACTORS.map(a => `<button class="chip" onclick="$('#gact').value=this.textContent">${esc(a)}</button>`).join('')}</div>
+     <div class="actions"><button class="btn pri" onclick="gPortraits()">${ico('wand')}${ps.length ? 'Create new options' : 'Create actors'}</button>
+       <label class="btn ghost">${ico('import')}Use my photo<input type="file" accept="image/*" hidden onchange="gPhoto(this.files[0])"></label></div>
+     <div class="gports">${ps.map(f => `<img src="/api/shorts/${G.sid}/file/${f}" class="${f === sh.portrait ? 'on' : ''}" onclick="gPick('${f}')" alt="">`).join('')}</div>`,
+    ps.length ? 'Continue' : null, 'gNext()');
+}
+async function gPortraits() {
+  await api('/api/shorts/' + G.sid, {method: 'PUT', body: {actor: $('#gact').value.trim()}});
+  await gRun(api(`/api/shorts/${G.sid}/portraits`, {method: 'POST', body: {}}), 'Creating your presenter', 'Drawing four portraits with your local AI.');
+  G.short = await api('/api/shorts/' + G.sid); gActor();
+}
+async function gPhoto(f) { if (!f) return; const fd = new FormData(); fd.append('file', f); G.short = await api(`/api/shorts/${G.sid}/photo`, {method: 'POST', body: fd, headers: {}}); gActor(); }
+async function gPick(f) { G.short = await api('/api/shorts/' + G.sid, {method: 'PUT', body: {portrait: f}}); gActor(); }
+const VOICES = ['A warm, confident woman, natural conversational pace', 'A deep, calm man, trustworthy and clear', 'An upbeat young voice, energetic and friendly', 'A soft, thoughtful voice, slow and reassuring'];
+function gAiVoice() {
+  const sh = G.short || {};
+  gFrame('Choose the voice', 'Describe how the presenter sounds. The voice is created on your computer.',
+    `<label class="f">Voice</label><input id="gvoice" value="${esc(sh.voice || VOICES[0])}">
+     <div class="hooks" style="flex-direction:row;flex-wrap:wrap">${VOICES.map(a => `<button class="chip" onclick="$('#gvoice').value=this.textContent">${esc(a)}</button>`).join('')}</div>
+     <div class="actions"><button class="btn pri" onclick="gRecord()">${ico('speaker')}${sh.voice_wav ? 'Record again' : 'Record the voice'}</button></div>
+     ${sh.voice_wav ? `<audio controls src="/api/shorts/${G.sid}/file/${sh.voice_wav}?v=${Date.now()}" style="width:100%;margin-top:12px"></audio><p class="mut">${sh.voice_len}s of speech.</p>` : ''}`,
+    sh.voice_wav ? 'Continue' : null, 'gNext()');
+}
+async function gRecord() {
+  await api('/api/shorts/' + G.sid, {method: 'PUT', body: {voice: $('#gvoice').value.trim()}});
+  await gRun(api(`/api/shorts/${G.sid}/voice`, {method: 'POST', body: {}}), 'Recording the voice', 'Speaking every line of your script.');
+  G.short = await api('/api/shorts/' + G.sid); gAiVoice();
+}
+function gAiVideo() {
+  const sh = G.short || {}, mins = Math.max(1, Math.round((sh.voice_len || 30) / 6 * 1.6));
+  gFrame('Bring the presenter to life', `Your AI actor is animated to speak the script, with lip sync. This runs on your graphics card and takes about ${mins} minutes.`,
+    `<div class="gready"><img src="/api/shorts/${G.sid}/file/${sh.portrait}" alt=""><div><b>${esc((sh.script || {}).title || '')}</b><p class="mut">${sh.voice_len || '?'}s · ${esc(sh.actor || '')}</p></div></div>`,
+    'Animate', 'gAnimate()');
+}
+async function gAnimate() {
+  const j = await gRun(api(`/api/shorts/${G.sid}/video`, {method: 'POST', body: {}}), 'Animating your presenter', 'Each few seconds of speech is animated separately, then joined.');
+  if (!j) return gAiVideo();
+  G.slug = (j.result && j.result.slug) || j.project; await gLoad(); G.sel = [PROJ.clips[0].id]; gNext();
+}
 
 // ------------------------------------------------ keys + start
 addEventListener('keydown', e => {
