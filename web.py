@@ -341,6 +341,40 @@ def delete_project(slug: str):
     return {"ok": True}
 
 
+_media_locks = {}
+
+
+@app.get("/api/projects/{slug}/media/{name}")
+def media(slug: str, name: str):
+    """Timeline media, made on first use and cached: proxy.mp4 (small playable copy of the source),
+    strip.jpg (filmstrip) and wave.png (waveform). Decoding/encoding on the GPU."""
+    if name not in ("proxy.mp4", "strip.jpg", "wave.png"):
+        raise HTTPException(404)
+    p = project(slug)
+    out = p.work / name
+    with _media_locks.setdefault((slug, name), threading.Lock()):
+        if not out.exists():
+            info, src = p.data["info"], p.data["video"]
+            dur = info["duration"]
+            tmp = out.with_name("tmp_" + name)
+            if name == "proxy.mp4":
+                scale = "scale=-2:960" if info["h"] > info["w"] else "scale=-2:540"
+                cmd = ["ffmpeg", "-v", "error", "-y", "-hwaccel", "cuda", "-i", src, "-vf", scale + ",format=yuv420p",
+                       "-c:v", "h264_nvenc", "-cq", "28", "-g", "30", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(tmp)]
+            elif name == "strip.jpg":
+                n = int(min(240, max(24, dur / 1.5)))
+                cmd = ["ffmpeg", "-v", "error", "-y", "-hwaccel", "cuda", "-i", src, "-vf",
+                       f"fps={n / dur:.6f},scale=-2:72,tile={n}x1", "-frames:v", "1", "-q:v", "4", str(tmp)]
+            else:
+                cmd = ["ffmpeg", "-v", "error", "-y", "-i", src, "-filter_complex",
+                       "aformat=channel_layouts=mono,showwavespic=s=4000x120:colors=0xb8cdff:scale=sqrt", "-frames:v", "1", str(tmp)]
+            r = __import__("subprocess").run(cmd, capture_output=True, text=True)
+            if r.returncode or not tmp.exists():
+                raise HTTPException(500, f"couldn't make {name}: {r.stderr[-300:]}")
+            tmp.replace(out)
+    return FileResponse(out)
+
+
 @app.get("/files/{slug}/{name}")
 def files(slug: str, name: str):
     p = project(slug)
