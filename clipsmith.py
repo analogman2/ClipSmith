@@ -157,6 +157,21 @@ def load_brand(path):
 
 # ---------------------------------------------------------------- input
 
+def fetch_rclone(spec, dest):
+    """Copy a file from a cloud drive set up in rclone ("rclone:gdrive:Videos/talk.mp4") to dest."""
+    import shutil as _sh
+    remote_path = spec[len("rclone:"):]
+    if not _sh.which("rclone"):
+        raise SystemExit("rclone isn't installed (needed for My Drive).")
+    dest.mkdir(parents=True, exist_ok=True)
+    out = dest / Path(remote_path.split(":", 1)[1]).name
+    log(f"[0/4] copying {out.name} from your drive...", 0.01)
+    r = subprocess.run(["rclone", "copyto", remote_path, str(out)], capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f"Couldn't copy from your drive: {r.stderr.strip()[-200:]}")
+    return out
+
+
 def fetch_url(url, dest):
     import yt_dlp
     dest.mkdir(parents=True, exist_ok=True)
@@ -1689,7 +1704,9 @@ class Project:
 def create_project(source, out_root, s: Settings, manual=None, reselect=False, retranscribe=False):
     """Download/probe/transcribe/pick. Returns a saved Project (not rendered yet)."""
     out_root = Path(out_root)
-    if re.match(r"https?://", str(source)):
+    if str(source).startswith("rclone:"):
+        source = fetch_rclone(str(source), out_root.parent / "downloads")
+    elif re.match(r"https?://", str(source)):
         source = fetch_url(str(source), out_root.parent / "downloads")
     video = Path(source).expanduser()
     if not video.exists():

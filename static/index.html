@@ -446,6 +446,7 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 .gports img.on{box-shadow:0 0 0 3px var(--accent)}
 .gready{display:flex;gap:16px;align-items:center;background:var(--field);border-radius:14px;padding:14px} .gready img{width:110px;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
 @media (max-width:900px){.gbodyw{grid-template-columns:1fr} #gside{display:none} #gmain{padding:20px 16px}}
+.drv code{background:var(--field2);border-radius:4px;padding:0 4px;font-size:11.5px}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -520,6 +521,9 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
   <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/></symbol>
   <symbol id="i-render" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8.5 4h7l6 10.5-3.5 6h-12L2.5 14.5z"/><path d="M8.5 4 14.5 14.5M15.5 4 9.5 14.5M2.5 14.5h19"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
   <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.5 5 2.5-5 2.5z" fill="currentColor"/></symbol>
   <symbol id="i-ig" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor"/></symbol>
@@ -1173,10 +1177,11 @@ const SRCS = new Set(); let LIB = [], SRC_TAB = 'lib';
 async function openNew(tab = 'lib') {
   SRC_TAB = tab; SRCS.clear(); const d = META.defaults;
   const sel = (k, list) => `<select data-k="${k}">${list.map(x => `<option ${x === d[k] ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-  sheet('Find clips in a video', `<div class="imp"><div class="src">${[['lib', 'film', 'My videos'], ['up', 'import', 'Upload'], ['url', 'share', 'Link']].map(([k, i, n]) => `<div data-t="${k}" class="${k === tab ? 'on' : ''}" onclick="srcTab('${k}')">${ico(i)}${n}</div>`).join('')}</div>
+  sheet('Find clips in a video', `<div class="imp"><div class="src">${[['lib', 'film', 'My videos'], ['drive', 'drive', 'Google Drive'], ['up', 'import', 'Upload'], ['url', 'link', 'Links']].map(([k, i, n]) => `<div data-t="${k}" class="${k === tab ? 'on' : ''}" onclick="srcTab('${k}')">${ico(i)}${n}</div>`).join('')}</div>
     <div><div data-src="lib" ${tab === 'lib' ? '' : 'hidden'}><input id="libq" placeholder="Search videos… (click several to queue a batch)" oninput="drawLib()"><div class="list" id="lib" style="margin-top:6px"><div class="mut">Loading…</div></div></div>
       <div data-src="up" ${tab === 'up' ? '' : 'hidden'}><input type="file" id="upfile" accept="video/*"><p class="mut" id="upmsg"></p></div>
-      <div data-src="url" ${tab === 'url' ? '' : 'hidden'}><textarea id="url" placeholder="https://www.youtube.com/watch?v=…&#10;(one link per line for a batch)"></textarea><p class="mut">YouTube, TikTok, Instagram and most other video sites.</p></div></div></div>
+      <div data-src="url" ${tab === 'url' ? '' : 'hidden'}><textarea id="url" placeholder="https://www.youtube.com/watch?v=…&#10;(one link per line for a batch)"></textarea><p class="mut">YouTube, Vimeo, Loom, Dropbox, Box, TikTok, Instagram and most other video sites.</p></div>
+      <div data-src="drive" ${tab === 'drive' ? '' : 'hidden'} id="drivePanel"></div></div></div>
     <label class="f">What should the clips be about? (optional)</label><input data-k="prompt" value="${esc(d.prompt)}" placeholder="e.g. tips for psychologists on Instagram, the funniest moments">
     <div class="cols4"><div><label class="f">Clips</label><input type="number" data-k="count" value="${d.count}"></div><div><label class="f">Min (s)</label><input type="number" data-k="min" value="${d.min}"></div>
       <div><label class="f">Max (s)</label><input type="number" data-k="max" value="${d.max}"></div><div><label class="f">Aspect</label>${sel('aspect', META.aspects)}</div>
@@ -1191,15 +1196,17 @@ async function openNew(tab = 'lib') {
     startNew, 'Find Clips');
   LIB = await api('/api/library'); drawLib();
 }
-function srcTab(k) { SRC_TAB = k; document.querySelectorAll('.imp .src div').forEach(d => d.classList.toggle('on', d.dataset.t === k)); document.querySelectorAll('[data-src]').forEach(d => d.hidden = d.dataset.src !== k); }
+function srcTab(k) { SRC_TAB = k; document.querySelectorAll('.imp .src div').forEach(d => d.classList.toggle('on', d.dataset.t === k)); document.querySelectorAll('[data-src]').forEach(d => d.hidden = d.dataset.src !== k);
+  if (k === 'drive') drivePanel('studio'); }
 function drawLib() {
-  const el = $('#lib'); if (!el) return; const q = ($('#libq').value || '').toLowerCase();
+  const el = $('#lib'); if (!el) return;
+  folderRow(); const q = ($('#libq').value || '').toLowerCase();
   el.innerHTML = LIB.map((v, i) => ({...v, i})).filter(v => !q || (v.name + v.folder).toLowerCase().includes(q)).slice(0, 300).map(v =>
     `<div class="${SRCS.has(v.path) ? 'on' : ''}" onclick="toggleSrc(${v.i})">${ico('film')}<span style="flex:1;min-width:0"><b style="word-break:break-all">${esc(v.name)}</b><br><small>${esc(v.folder)} · ${(v.size / 1e9).toFixed(2)} GB</small></span>${v.project ? '<span class="tag">has clips</span>' : ''}</div>`).join('') || '<div class="mut">No videos found in ~/Videos.</div>';
 }
 function toggleSrc(i) { const p = LIB[i].path; SRCS.has(p) ? SRCS.delete(p) : SRCS.add(p); drawLib(); $('#dlgGo').textContent = SRCS.size > 1 ? `Find Clips in ${SRCS.size} Videos` : 'Find Clips'; }
 async function startNew() {
-  let sources = SRC_TAB === 'lib' ? [...SRCS] : SRC_TAB === 'url' ? $('#url').value.split(/\s+/).filter(Boolean) : [];
+  let sources = SRC_TAB === 'lib' || SRC_TAB === 'drive' ? [...SRCS] : SRC_TAB === 'url' ? $('#url').value.split(/\s+/).filter(Boolean) : [];
   const settings = readForm($('#dlgB'));
   if (SRC_TAB === 'up') {
     const f = $('#upfile').files[0]; if (!f) return toast('Choose a file');
@@ -1329,6 +1336,55 @@ function dubSection(c, busy) {
 async function dubClip(id) { const lang = $('#dub-lang').value; await runJob(api(`/api/projects/${CUR}/clips/${id}/dub`, {method: 'POST', body: {lang}}), 'Dubbing — translating, cloning the voice, rendering (about a minute)…'); }
 async function delDub(id, lang) { if (!confirm('Delete this dub?')) return; await api(`/api/projects/${CUR}/clips/${id}/dub/${lang}`, {method: 'DELETE'}); loadProject(true); }
 function playFile(url, title) { if (!VID) return; MODE = 'clip'; VID.src = url; $('#vtitle').textContent = title; $('#vbadge').textContent = 'Dub'; VID.play(); }
+
+// ------------------------------------------------ import sources: Google Drive (share links or My Drive) and library folders
+let DRV = {who: 'studio', items: [], remote: '', path: '', browse: null, src: null};
+const pickSrc = v => DRV.who === 'gen' ? G.src === v : SRCS.has(v);
+function choose(v, title) {
+  if (DRV.who === 'gen') { G.src = v; G.srcName = title; } else { SRCS.has(v) ? SRCS.delete(v) : SRCS.add(v); $('#dlgGo').textContent = SRCS.size > 1 ? `Find Clips in ${SRCS.size} Videos` : 'Find Clips'; }
+  drawDrive();
+}
+async function drivePanel(who) { DRV.who = who; DRV.src = DRV.src || await api('/api/sources'); drawDrive(); }
+function drawDrive() {
+  const el = $('#drivePanel'); if (!el) return;
+  const rem = (DRV.src.remotes || []).filter(r => r.type === 'drive');
+  el.innerHTML = `<div class="drv">
+    <label class="f" style="margin-top:0">Shared link to a video or a folder</label>
+    <div class="row"><input id="drvurl" placeholder="https://drive.google.com/…" onkeydown="if(event.key==='Enter')driveFind()"><button class="btn" onclick="driveFind()">Find videos</button></div>
+    <p class="mut" style="margin:6px 0 0;font-size:11.5px">In Google Drive: Share → General access → Anyone with the link. Folders list every video inside.</p>
+    ${DRV.items.length ? `<div class="list" style="margin-top:8px">${DRV.items.map((it, i) => `<div class="${pickSrc(it.url) ? 'on' : ''}" onclick="choose(DRV.items[${i}].url, DRV.items[${i}].title)">${ico('film')}<span style="flex:1;min-width:0"><b>${esc(it.title)}</b>${it.duration ? `<br><small>${ts(it.duration).replace(/\.\d$/, '')}</small>` : ''}</span></div>`).join('')}</div>` : ''}
+    <div class="sect"><span class="cap">My Drive</span>
+    ${rem.length ? `<div class="row" style="margin-top:6px">${rem.length > 1 ? `<select onchange="DRV.remote=this.value;DRV.path='';driveBrowse()">${rem.map(r => `<option ${r.name === DRV.remote ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>` : ''}
+        <span class="mut grow">${esc(DRV.remote || rem[0].name)}:/${esc(DRV.path)}</span>${DRV.path ? `<button class="btn ghost" style="height:24px" onclick="DRV.path=DRV.path.split('/').slice(0,-1).join('/');driveBrowse()">Up</button>` : ''}</div>
+      <div class="list" id="drvlist" style="margin-top:6px">${DRV.browse ? DRV.browse.map((x, i) => `<div class="${!x.dir && pickSrc('rclone:' + DRV.remote + ':' + x.path) ? 'on' : ''}" onclick="driveOpen(${i})">${ico(x.dir ? 'folder' : 'film')}<span style="flex:1;min-width:0">${esc(x.name)}${x.dir ? '' : `<br><small>${(x.size / 1e9).toFixed(2)} GB</small>`}</span></div>`).join('') || '<div class="mut">No videos here.</div>' : '<div class="mut">Loading…</div>'}</div>`
+    : `<p class="mut" style="margin:6px 0 0">To browse your whole Drive (not just shared links), connect it once with rclone: install it, run <code>rclone config</code>, add a remote of type “drive” and sign in to Google. It then appears here.</p>`}</div></div>`;
+  if (rem.length && !DRV.browse) { DRV.remote = DRV.remote || rem[0].name; driveBrowse(); }
+}
+async function driveFind() {
+  const url = $('#drvurl').value.trim(); if (!url) return toast('Paste a link');
+  toast('Looking at the link…');
+  try { const r = await api('/api/links/list', {method: 'POST', body: {url}}); DRV.items = r.items; if (r.kind === 'file') choose(r.items[0].url, r.items[0].title); }
+  catch { return; }
+  drawDrive(); const i = $('#drvurl'); if (i) i.value = url;
+}
+async function driveBrowse() { DRV.browse = null; drawDrive(); try { DRV.browse = await api(`/api/drive/browse?remote=${encodeURIComponent(DRV.remote)}&path=${encodeURIComponent(DRV.path)}`); } catch { DRV.browse = []; } drawDrive(); }
+function driveOpen(i) { const x = DRV.browse[i]; if (x.dir) { DRV.path = x.path; driveBrowse(); } else choose('rclone:' + DRV.remote + ':' + x.path, x.name); }
+// extra library folders (an external drive, a Dropbox or Google Drive desktop folder...)
+function folderRow() {
+  if ($('#libfolders') || !$('#lib')) return;
+  $('#lib').insertAdjacentHTML('afterend', `<div id="libfolders" class="mut" style="font-size:11.5px;margin-top:8px"></div>`); drawFolders();
+}
+async function drawFolders() {
+  const src = await api('/api/sources'), el = $('#libfolders'); if (!el) return;
+  el.innerHTML = `Looking in ${[...src.builtin, ...src.folders].map(esc).join(', ')} · <a href="#" onclick="addFolder();return false">Add a folder…</a>${src.folders.length ? ` · <a href="#" onclick="removeFolders();return false">Remove added folders</a>` : ''}`;
+}
+async function addFolder() {
+  const f = prompt('Folder with videos (e.g. /media/jt/Backup/Footage or ~/Dropbox/Videos):'); if (!f) return;
+  const src = await api('/api/sources');
+  try { await api('/api/sources/folders', {method: 'PUT', body: {folders: [...src.folders, f.trim()]}}); } catch { return; }
+  LIB = await api('/api/library'); drawLib(); drawFolders(); toast('Folder added');
+}
+async function removeFolders() { if (!confirm('Stop looking in the folders you added? (Nothing is deleted.)')) return; await api('/api/sources/folders', {method: 'PUT', body: {folders: []}}); LIB = await api('/api/library'); drawLib(); drawFolders(); }
 
 // ------------------------------------------------ jobs the UI waits for
 async function runJob(req, msg) {
@@ -1491,23 +1547,25 @@ async function gRun(req, title, sub) {
 // ---- From my video
 function gVideo() {
   gFrame('Choose your video', 'Pick a video from your library, upload one, or paste a link.',
-    `<div class="segc gsrc">${[['lib', 'My videos'], ['up', 'Upload'], ['url', 'Link']].map(([k, n]) => `<button class="${G.srcTab === k ? 'on' : ''}" onclick="G.srcTab='${k}';drawGen()">${n}</button>`).join('')}</div>
-    ${G.srcTab === 'lib' ? `<div class="search" style="margin:12px 0 8px">${ico('search')}<input id="gq" placeholder="Search" oninput="gLib()"></div><div class="list glist" id="glib"><div class="mut">Loading…</div></div>`
+    `<div class="segc gsrc">${[['lib', 'My videos'], ['drive', 'Google Drive'], ['up', 'Upload'], ['url', 'Links']].map(([k, n]) => `<button class="${G.srcTab === k ? 'on' : ''}" onclick="G.srcTab='${k}';drawGen()">${n}</button>`).join('')}</div>
+    ${G.srcTab === 'drive' ? `<div id="drivePanel" style="margin-top:12px"></div>` : G.srcTab === 'lib' ? `<div class="search" style="margin:12px 0 8px">${ico('search')}<input id="gq" placeholder="Search" oninput="gLib()"></div><div class="list glist" id="glib"><div class="mut">Loading…</div></div>`
       : G.srcTab === 'up' ? `<label class="gdrop"><input type="file" accept="video/*" id="gfile" onchange="G.srcName=this.files[0]?.name||'';$('#gdropn').textContent=G.srcName||'Choose a video file'"><span>${ico('import', 'l')}</span><b id="gdropn">${esc(G.srcName || 'Choose a video file')}</b><span class="mut">MP4, MOV, MKV…</span></label>`
-      : `<input id="gurl" placeholder="https://www.youtube.com/watch?v=…" value="${esc(G.src && G.src.startsWith('http') ? G.src : '')}" style="margin-top:12px">`}
+      : `<input id="gurl" placeholder="https://www.youtube.com/watch?v=… (or Vimeo, Loom, Dropbox, Box…)" value="${esc(G.src && G.src.startsWith('http') ? G.src : '')}" style="margin-top:12px">`}
     <div class="grid2" style="margin-top:16px"><div><label class="f">What should the shorts be about? (optional)</label><input id="gprompt" value="${esc(G.prompt)}" placeholder="e.g. the best tips, the funniest moments"></div>
       <div><label class="f">How many moments to find</label><select id="gcount">${[1, 2, 3, 5, 8].map(n => `<option ${n === G.count ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>`,
     'Analyze video', 'gStartAnalyze()');
   if (G.srcTab === 'lib') api('/api/library').then(l => { LIB = l; gLib(); });
+  if (G.srcTab === 'drive') drivePanel('gen');
 }
 function gLib() {
   const q = ($('#gq') || {}).value?.toLowerCase() || '', el = $('#glib'); if (!el) return;
+  if (!$('#libfolders')) { el.insertAdjacentHTML('afterend', '<div id="libfolders" class="mut" style="font-size:11.5px;margin-top:8px"></div>'); drawFolders(); }
   el.innerHTML = LIB.map((v, i) => ({...v, i})).filter(v => !q || v.name.toLowerCase().includes(q)).slice(0, 200).map(v =>
     `<div class="${G.src === v.path ? 'on' : ''}" onclick="G.src=LIB[${v.i}].path;G.srcName=LIB[${v.i}].name;gLib()">${ico('film')}<span style="flex:1;min-width:0"><b style="word-break:break-all">${esc(v.name)}</b><br><small>${esc(v.folder)}</small></span>${v.project ? '<span class="tag">has clips</span>' : ''}</div>`).join('') || '<div class="mut">No videos found.</div>';
 }
 async function gStartAnalyze() {
   G.prompt = $('#gprompt').value.trim(); G.count = +$('#gcount').value;
-  let source = G.srcTab === 'lib' ? G.src : G.srcTab === 'url' ? $('#gurl').value.trim() : null;
+  let source = G.srcTab === 'lib' || G.srcTab === 'drive' ? G.src : G.srcTab === 'url' ? $('#gurl').value.trim() : null;
   if (G.srcTab === 'up') {
     const f = $('#gfile').files[0]; if (!f) return toast('Choose a video file');
     const fd = new FormData(); fd.append('file', f); toast('Uploading…');

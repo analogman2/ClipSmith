@@ -4,6 +4,7 @@ re-render the shorts. Local only (127.0.0.1). One GPU job at a time, in a queue.
 
     ./serve.sh            # http://127.0.0.1:8765
 """
+import json
 import os
 import queue
 import shutil
@@ -22,6 +23,18 @@ import studio
 HERE = Path(__file__).resolve().parent
 CLIPS = HERE / "clips"
 UPLOADS = HERE / "uploads"
+FOLDERS_FILE = HERE / "library.json"      # extra library folders added in the app (external drives...)
+
+
+def library_roots():
+    extra = []
+    try:
+        extra = [Path(p).expanduser() for p in json.loads(FOLDERS_FILE.read_text()).get("folders", [])]
+    except (OSError, ValueError):
+        pass
+    return LIBRARY + [p for p in extra if p not in LIBRARY]
+
+
 LIBRARY = [Path(p).expanduser() for p in os.environ.get("CLIPSMITH_LIBRARY", "~/Videos").split(":")] + \
           [UPLOADS, HERE / "downloads"]
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
@@ -260,7 +273,7 @@ def state():
 @app.get("/api/library")
 def library():
     out = []
-    for root in LIBRARY:
+    for root in library_roots():
         if not root.exists():
             continue
         for f in root.rglob("*"):
@@ -592,6 +605,87 @@ def delete_dub(slug: str, cid: int, lang: str):
             (p.dir / d["file"]).with_suffix(ext).unlink(missing_ok=True)
     p.save()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- import sources: folders, Google Drive, other links
+
+@app.get("/api/sources")
+def sources():
+    import shutil as _sh
+    remotes = []
+    if _sh.which("rclone"):
+        try:
+            out = __import__("subprocess").run(["rclone", "listremotes", "--long"], capture_output=True, text=True, timeout=10).stdout
+            for line in out.splitlines():
+                name, _, kind = line.partition(":")
+                if kind.strip() in ("drive", "onedrive", "dropbox", "box", "pcloud", "s3"):
+                    remotes.append({"name": name.strip(), "type": kind.strip()})
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        folders = json.loads(FOLDERS_FILE.read_text()).get("folders", [])
+    except (OSError, ValueError):
+        folders = []
+    return {"rclone": bool(_sh.which("rclone")), "remotes": remotes, "folders": folders,
+            "builtin": [str(p).replace(str(Path.home()), "~") for p in LIBRARY]}
+
+
+@app.put("/api/sources/folders")
+async def set_folders(req: Request):
+    body = await req.json()
+    folders = []
+    for f in body.get("folders", []):
+        p = Path(str(f)).expanduser()
+        if not p.is_dir():
+            raise HTTPException(400, f"not a folder: {f}")
+        folders.append(str(p))
+    FOLDERS_FILE.write_text(json.dumps({"folders": folders}, indent=1))
+    return sources()
+
+
+VIDEO_RE = r"\.(mp4|mov|mkv|webm|m4v|avi)$"
+
+
+@app.post("/api/links/list")
+async def links_list(req: Request):
+    """What's behind a share link: one video, or the videos in a shared folder (Google Drive, Dropbox...)."""
+    import re as _re
+    import yt_dlp
+    url = ((await req.json()).get("url") or "").strip()
+    if not _re.match(r"https?://", url):
+        raise HTTPException(400, "paste a link starting with https://")
+    try:
+        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "extract_flat": "in_playlist", "noplaylist": False}) as y:
+            info = y.extract_info(url, download=False)
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        if "drive.google" in url and any(k in msg.lower() for k in ("not public", "403", "404", "sign in", "unable to download")):
+            msg = ("Couldn't open that Drive link. Check it's right and shared: in Drive, Share → General access → "
+                   "Anyone with the link.")
+        raise HTTPException(400, msg.replace("ERROR: ", "")[:300])
+    if info.get("_type") == "playlist" or info.get("entries"):
+        items = [{"title": e.get("title") or e.get("id"), "url": e.get("url") or e.get("webpage_url"), "duration": e.get("duration")}
+                 for e in (info.get("entries") or []) if e]
+        items = [i for i in items if i["url"]]
+        return {"kind": "folder", "title": info.get("title", ""), "items": items}
+    return {"kind": "file", "title": info.get("title", ""), "items": [{"title": info.get("title") or "video", "url": url,
+                                                                       "duration": info.get("duration")}]}
+
+
+@app.get("/api/drive/browse")
+def drive_browse(remote: str, path: str = ""):
+    """Folders and videos in a cloud drive connected with rclone."""
+    import re as _re
+    import subprocess as sp
+    if not _re.match(r"^[\w.-]+$", remote) or ".." in path:
+        raise HTTPException(400, "bad path")
+    r = sp.run(["rclone", "lsjson", f"{remote}:{path}", "--no-modtime", "--fast-list"], capture_output=True, text=True, timeout=60)
+    if r.returncode:
+        raise HTTPException(400, r.stderr.strip()[-200:] or "couldn't list the drive")
+    items = json.loads(r.stdout or "[]")
+    out = [{"name": i["Name"], "dir": i["IsDir"], "size": i.get("Size", 0), "path": (path.rstrip("/") + "/" if path else "") + i["Name"]}
+           for i in items if i["IsDir"] or _re.search(VIDEO_RE, i["Name"], _re.I)]
+    return sorted(out, key=lambda x: (not x["dir"], x["name"].lower()))
 
 
 # ---------------------------------------------------------------- Clip Generator (guided path)
