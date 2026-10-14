@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {"name": "clipsmith", "runtimeExecutable": "./serve.sh", "runtimeArgs": [], "port": 8765}
+  ]
+}
