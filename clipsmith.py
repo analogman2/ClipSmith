@@ -58,6 +58,16 @@ def checkpoint():
         c()
 
 
+_span = None      # (start, width) of the overall progress bar the current render fills (set by render_all)
+
+
+def report(progress):
+    """Progress only (no log line); also a pause/stop checkpoint."""
+    checkpoint()
+    for h in _hooks:
+        h(None, progress)
+
+
 def log(msg, progress=None):
     checkpoint()
     print(msg, file=sys.stderr, flush=True)
@@ -1534,7 +1544,20 @@ def render_clip(video, info, clip, words, language, out_path, work, s: Settings,
     cmd += venc + ["-profile:v", "high", "-pix_fmt", "yuv420p", "-g", str(int(round(fps * 2))),
                    "-shortest", "-movflags", "+faststart", str(out_path.resolve())]
     t0 = time.time()
-    r = subprocess.run(cmd, cwd=work, capture_output=True, text=True)
+    cmd[3:3] = ["-progress", "pipe:1", "-nostats"]     # live progress, so the bar moves while ffmpeg works
+    proc = subprocess.Popen(cmd, cwd=work, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    last = 0.0
+    for line in proc.stdout:
+        if line.startswith("out_time_us=") and _span and tl.length > 0:
+            try:
+                f = min(1.0, int(line.split("=", 1)[1]) / 1e6 / tl.length)
+            except ValueError:
+                continue
+            if f - last >= 0.02:
+                last = f
+                report(_span[0] + _span[1] * f)
+    err = proc.stderr.read()
+    r = subprocess.CompletedProcess(cmd, proc.wait(), "", err)
     if r.returncode:
         raise RuntimeError(f"ffmpeg failed for {tag}:\n{r.stderr[-3000:]}")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(1.2, tl.length / 2):.2f}", "-i", str(out_path),
@@ -1747,11 +1770,15 @@ def create_project(source, out_root, s: Settings, manual=None, reselect=False, r
     return p
 
 
-def render_all(p: Project, only=None):
+def render_all(p: Project, only=None, start=0.45):
+    """Render clips; the progress bar goes from start to 1.0 (0.45 after an import's analysis)."""
+    global _span
     clips = [c for c in p.clips if only is None or c["id"] in only]
     done = 0
     for c in sorted(clips, key=lambda c: -c.get("score", 0)):
-        log(f"[3/4] rendering {done + 1}/{len(clips)}: {c['title']}", 0.45 + 0.55 * done / len(clips))
+        width = (1 - start) / max(1, len(clips))
+        log(f"[3/4] rendering {done + 1}/{len(clips)}: {c['title']}", start + width * done)
+        _span = (start + width * done, width)
         try:
             p.render(c)
             log(f"       {c['length']:.0f}s, {c['layout']}, cut {c['cut_s']:.1f}s of pauses/fillers, "
@@ -1761,6 +1788,7 @@ def render_all(p: Project, only=None):
             log(str(e))
         done += 1
         p.save()
+    _span = None
     write_gallery(p)
     write_sheet_csv(p.dir / "clip_sheet.csv", clip_sheet(p))
     return p

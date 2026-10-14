@@ -139,7 +139,8 @@ def worker():
         CURRENT = j
 
         def hook(msg, progress, j=j):
-            j["log"].append(msg)
+            if msg is not None:
+                j["log"].append(msg)
             if progress is not None:
                 j["progress"] = progress
         cs._hooks.append(hook)
@@ -165,6 +166,14 @@ def worker():
 
 
 threading.Thread(target=worker, daemon=True).start()
+
+
+@app.delete("/api/jobs/finished")
+def clear_finished():
+    """Remove finished, stopped and failed jobs from the list."""
+    for jid in [k for k, j in JOBS.items() if j["status"] not in ACTIVE]:
+        del JOBS[jid]
+    return {"ok": True}
 
 
 @app.post("/api/jobs/{jid}/{action}")
@@ -342,7 +351,7 @@ def render_ids(slug, ids, settings=None):
     if settings:
         p.data["settings"] = {**p.data.get("settings", {}), **settings}
         p.save()
-    cs.render_all(p, only=set(ids) if ids else None)
+    cs.render_all(p, only=set(ids) if ids else None, start=0.0)
 
 
 @app.post("/api/projects/{slug}/clips")

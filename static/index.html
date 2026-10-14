@@ -362,6 +362,26 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 .speed .ib{min-width:22px;height:24px;padding:0 3px} .speed svg.i.s:first-child{margin-right:3px}
 #rate{font:500 11.5px var(--font);font-variant-numeric:tabular-nums;min-width:36px;text-align:center;color:var(--text);cursor:default}
 #rate.changed{color:var(--accent)}
+.task{display:flex;gap:12px;padding:12px;border-radius:12px;background:var(--field);margin:8px 0}
+.task.paused{opacity:.85} .task.queued{background:transparent;box-shadow:inset 0 0 0 1px var(--hair)}
+.tico{width:36px;height:36px;border-radius:10px;background:var(--accent-weak);color:var(--accent);display:grid;place-items:center;flex:none}
+.task.queued .tico{background:var(--field);color:var(--text2)}
+.tmain{flex:1;min-width:0} .tttl{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{font-size:11.5px;color:var(--text2);margin-top:1px}
+.tbar{height:7px;border-radius:7px;background:var(--field2);overflow:hidden;margin:9px 0 6px}
+.tbar i{display:block;height:100%;border-radius:7px;background:var(--accent);transition:width .6s var(--ease)}
+.task.paused .tbar i{background:var(--orange)} .task.stopping .tbar i{background:var(--text3)}
+.tmeta{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums}
+.tmeta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task .ib{background:var(--elev);border-radius:50%;min-width:28px;width:28px;height:28px;padding:0;color:var(--text)} .task .ib.stop{color:var(--danger)}
+.tsec{font-size:11.5px;font-weight:600;color:var(--text2);margin:16px 2px 4px}
+.tlist{border-radius:12px;background:var(--field);padding:2px 12px}
+.tdone{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--hair)} .tdone:last-child{border:0}
+.tmark{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;margin-top:1px;background:var(--field2);color:var(--text2)}
+.tmark.done{background:var(--green);color:#fff} .tmark.error{background:var(--danger);color:#fff}
+.twhen{font-size:11px;color:var(--text3);white-space:nowrap;margin-top:2px}
+.tdet summary{font-size:11.5px;padding:2px 0} .tdet .log{margin-top:4px}
+.tempty{text-align:center;padding:28px 10px;color:var(--text2)} .tempty svg{margin:0 auto 8px;color:var(--text3)} .tempty p{margin:0 0 4px;font-weight:600;color:var(--text)}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -641,13 +661,80 @@ function drawTasks() {
   $('#taskCtl').innerHTML = j ? jobButtons(j) : '';
   const e = STATE.jobs.find(j => j.status === 'error' && Date.now() / 1000 - j.finished < 120);
   const word = j && {paused: 'Paused', stopping: 'Stopping…', queued: 'Waiting'}[j.status];
-  $('#taskTxt').innerHTML = j ? `${word ? `<b>${word}</b> · ` : ''}${esc(j.label)} — ${esc(j.log.at(-1) || 'waiting…')}${q > (j.status === 'queued' ? 1 : 0) ? ` · ${q} queued` : ''}` : e ? `<span class="err">✕ ${esc(e.label)}: ${esc(e.error)}</span>` : '';
+  $('#taskTxt').innerHTML = j ? `${esc(jobInfo(j).title)} — ${esc(friendlyStep(j))}${j.status === 'running' ? ' · ' + Math.round(j.progress * 100) + '%' : ''}${q > (j.status === 'queued' ? 1 : 0) ? ` · ${q} queued` : ''}` : e ? `<span class="err">✕ ${esc(e.label)}: ${esc(e.error)}</span>` : '';
 }
-function openJobs() { sheet('Background Tasks', '', null); dlg.dataset.kind = 'jobs'; drawJobs(); }
+function openJobs() {
+  sheet('Background Tasks', '', null); dlg.dataset.kind = 'jobs';
+  dlg.style.width = 'min(560px,95vw)'; dlg.addEventListener('close', () => { dlg.style.width = ''; dlg.dataset.kind = ''; }, {once: true});
+  drawJobs();
+}
+// plain-language task names, steps and time left (the raw log stays behind "Details")
+function jobInfo(j) {
+  const L = j.label || '', name = L.replace(/^[^:]+:\s*/, '');
+  let icon = 'render', title = name, kind = 'Rendering';
+  if (j.kind === 'create') { icon = 'clap'; kind = L.startsWith('Find new') ? 'Finding new moments' : 'Making clips'; title = L.startsWith('Find new') ? (PROJ && PROJ.slug === j.project ? PROJ.video.split('/').pop() : 'Your video') : name; }
+  else if (j.kind === 'stitch') { icon = 'montage'; kind = 'Joining clips'; title = 'Stitched video'; }
+  else if (j.kind === 'insights') { icon = 'chart'; kind = 'Insights'; title = 'What’s working'; }
+  else if (j.kind === 'studio') {
+    if (/^Dub into/.test(L)) { icon = 'speaker'; kind = L.split(':')[0]; }
+    else if (/^YouTube/.test(L)) { icon = 'yt'; kind = 'YouTube'; title = L.split(': ')[1] || name; }
+    else if (/^Instagram/.test(L)) { icon = 'ig'; kind = 'Instagram'; title = L.split(': ')[1] || name; }
+    else { icon = 'image'; kind = name; title = L; }
+  } else if (j.kind === 'render') { kind = L.startsWith('New clip') ? 'New clip' : L.startsWith('Re-render all') ? 'Restyling all clips' : 'Rendering'; if (L.startsWith('Re-render all')) title = 'All clips'; }
+  return {icon, title, kind};
+}
+function friendlyStep(j) {
+  if (j.status === 'queued') return 'Waiting its turn';
+  if (j.status === 'paused') return 'Paused';
+  if (j.status === 'stopping') return 'Stopping…';
+  const l = [...j.log].reverse().find(x => x && !/^\s/.test(x)) || '';
+  let m;
+  if ((m = l.match(/rendering (\d+)\/(\d+)/))) return +m[2] > 1 ? `Rendering clip ${m[1]} of ${m[2]}` : 'Rendering';
+  if ((m = l.match(/\[dub\] line (\d+)\/(\d+)/))) return `Recording the new voice · line ${m[1]} of ${m[2]}`;
+  const map = [[/downloading/, 'Downloading the video'], [/transcrib/, 'Listening to the video'], [/transcript: cached/, 'Transcript ready'],
+    [/mapping/, 'Mapping the story'], [/reading transcript|candidates|moments:/, 'Finding the best moments'], [/\[dub\] translating/, 'Translating'],
+    [/\[dub\] (cloning|voice model)/, 'Preparing the voice'], [/\[dub\] timing the captions/, 'Timing the captions'], [/\[dub\] timing/, 'Matching the timing'],
+    [/\[dub\] rendering/, 'Rendering'], [/\[stitch\]/, 'Joining clips'], [/\[youtube\]/, 'Writing'], [/\[instagram\]/, 'Writing'], [/\[frames\]/, 'Picking frames']];
+  for (const [re, t] of map) if (re.test(l)) return t;
+  return j.status === 'running' ? 'Working' : '';
+}
+function friendlyError(e) {
+  e = e || '';
+  if (/VRAM|GPU|CUDA|out of memory/i.test(e)) return 'The graphics card is busy with another app. Try again when it’s free.';
+  if (/Ollama/i.test(e)) return 'The AI model isn’t running. Start Ollama and try again.';
+  if (/ComfyUI/i.test(e)) return 'ComfyUI isn’t running, so AI images and actors are unavailable.';
+  if (/No speech/i.test(e)) return 'No speech was found in this video.';
+  if (/No good moments/i.test(e)) return 'No strong moments were found. Try a different topic or clip length.';
+  if (/not found/i.test(e)) return 'The video file couldn’t be found.';
+  return 'Something went wrong. See Details.';
+}
+function timeLeft(j) {
+  if (j.status !== 'running' || !j.started || j.progress < 0.04) return '';
+  const el = Date.now() / 1000 - j.started, left = el * (1 - j.progress) / j.progress;
+  if (left < 15) return 'Almost done';
+  if (left < 60) return 'Less than a minute left';
+  const m = Math.round(left / 60); return `About ${m} minute${m > 1 ? 's' : ''} left`;
+}
 function drawJobs() {
-  $('#dlgB').innerHTML = STATE.jobs.map(j => `<div style="margin:10px 0 14px"><div class="row"><b class="grow">${esc(j.label)}</b><span class="jstate ${j.status}">${j.status}</span>${jobButtons(j)}</div>
-    <div class="pbar"><i style="width:${Math.round((j.status === 'done' ? 1 : j.progress) * 100)}%"></i></div>${j.error ? `<p class="err">${esc(j.error)}</p>` : ''}<div class="log">${esc(j.log.join('\n'))}</div></div>`).join('') || '<p class="mut">No tasks yet.</p>';
+  const live = STATE.jobs.filter(j => ['running', 'paused', 'stopping'].includes(j.status));
+  const next = STATE.jobs.filter(j => j.status === 'queued').reverse();
+  const done = STATE.jobs.filter(j => !ACTIVE.includes(j.status));
+  const card = j => { const k = jobInfo(j), pct = Math.round(j.progress * 100), tl = timeLeft(j);
+    return `<div class="task ${j.status}"><div class="tico">${ico(k.icon, '')}</div><div class="tmain">
+      <div class="row"><div class="grow"><div class="tttl">${esc(k.title)}</div><div class="tsub">${esc(k.kind)}</div></div>${jobButtons(j)}</div>
+      ${j.status === 'queued' ? '' : `<div class="tbar"><i style="width:${Math.max(2, pct)}%"></i></div>`}
+      <div class="tmeta"><span>${esc(friendlyStep(j))}</span><span>${j.status === 'queued' ? '' : pct + '%'}${tl ? ' · ' + tl : ''}</span></div></div></div>`; };
+  const fin = j => { const k = jobInfo(j), ok = j.status === 'done', stopped = j.status === 'stopped';
+    const when = j.finished ? new Date(j.finished * 1000).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}) : '';
+    return `<div class="tdone"><span class="tmark ${j.status}">${ok ? '✓' : stopped ? '■' : '!'}</span><div class="grow"><div class="tttl">${esc(k.title)}</div>
+      <div class="tsub">${ok ? esc(k.kind) + ' · done' : stopped ? 'Stopped' : esc(friendlyError(j.error))}</div>
+      ${j.status === 'error' ? `<details class="tdet"><summary>Details</summary><div class="log">${esc([j.error || '', ...j.log.slice(-10)].join('\n'))}</div></details>` : ''}</div><span class="twhen">${when}</span></div>`; };
+  $('#dlgB').innerHTML = (live.length || next.length || done.length) ?
+    `${live.map(card).join('')}${next.length ? `<div class="tsec">Up next</div>${next.map(card).join('')}` : ''}
+     ${done.length ? `<div class="tsec row"><span class="grow">Finished</span><button class="btn ghost" style="height:24px" onclick="clearFinished()">Clear</button></div><div class="tlist">${done.map(fin).join('')}</div>` : ''}`
+    : `<div class="tempty">${ico('render', 'l')}<p>Nothing running</p><span class="mut">Imports, renders and dubs show up here with their progress.</span></div>`;
 }
+async function clearFinished() { await api('/api/jobs/finished', {method: 'DELETE'}); await poll(); drawJobs(); }
 
 // ------------------------------------------------ library tree
 function drawTree() {
