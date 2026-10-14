@@ -613,9 +613,11 @@ def delete_dub(slug: str, cid: int, lang: str):
 def sources():
     import shutil as _sh
     remotes = []
-    if _sh.which("rclone"):
+    import drive_connect as dc
+    exe = dc.rclone()
+    if exe:
         try:
-            out = __import__("subprocess").run(["rclone", "listremotes", "--long"], capture_output=True, text=True, timeout=10).stdout
+            out = __import__("subprocess").run([exe, "listremotes", "--long"], capture_output=True, text=True, timeout=10).stdout
             for line in out.splitlines():
                 name, _, kind = line.partition(":")
                 if kind.strip() in ("drive", "onedrive", "dropbox", "box", "pcloud", "s3"):
@@ -626,7 +628,7 @@ def sources():
         folders = json.loads(FOLDERS_FILE.read_text()).get("folders", [])
     except (OSError, ValueError):
         folders = []
-    return {"rclone": bool(_sh.which("rclone")), "remotes": remotes, "folders": folders,
+    return {"rclone": bool(exe), "remotes": remotes, "folders": folders,
             "builtin": [str(p).replace(str(Path.home()), "~") for p in LIBRARY]}
 
 
@@ -690,6 +692,24 @@ async def links_list(req: Request):
                                                                        "duration": info.get("duration")}]}
 
 
+@app.post("/api/drive/connect")
+def drive_connect():
+    import drive_connect as dc
+    return dc.start()
+
+
+@app.get("/api/drive/status")
+def drive_status():
+    import drive_connect as dc
+    return dc.status()
+
+
+@app.delete("/api/drive/connect")
+def drive_disconnect():
+    import drive_connect as dc
+    return dc.disconnect()
+
+
 @app.get("/api/drive/browse")
 def drive_browse(remote: str, path: str = ""):
     """Folders and videos in a cloud drive connected with rclone."""
@@ -697,7 +717,8 @@ def drive_browse(remote: str, path: str = ""):
     import subprocess as sp
     if not _re.match(r"^[\w.-]+$", remote) or ".." in path:
         raise HTTPException(400, "bad path")
-    r = sp.run(["rclone", "lsjson", f"{remote}:{path}", "--no-modtime", "--fast-list"], capture_output=True, text=True, timeout=60)
+    import drive_connect as dc
+    r = sp.run([dc.rclone() or "rclone", "lsjson", f"{remote}:{path}", "--no-modtime", "--fast-list"], capture_output=True, text=True, timeout=60)
     if r.returncode:
         raise HTTPException(400, r.stderr.strip()[-200:] or "couldn't list the drive")
     items = json.loads(r.stdout or "[]")

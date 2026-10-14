@@ -447,6 +447,10 @@ table.t th{color:var(--text2);font-weight:600} table.t td.n{text-align:right;fon
 .gready{display:flex;gap:16px;align-items:center;background:var(--field);border-radius:14px;padding:14px} .gready img{width:110px;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
 @media (max-width:900px){.gbodyw{grid-template-columns:1fr} #gside{display:none} #gmain{padding:20px 16px}}
 .drv code{background:var(--field2);border-radius:4px;padding:0 4px;font-size:11.5px}
+.dcon{display:flex;gap:14px;align-items:center;justify-content:space-between;background:var(--field);border-radius:12px;padding:12px 14px;margin-top:8px}
+.dcon p{margin:3px 0 0;font-size:12px} .dcon .btn{flex:none}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--field2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
 .taskctl{display:flex;gap:2px}
 .taskctl .ib{height:28px;min-width:30px;border-radius:8px;background:var(--field);color:var(--text)} .taskctl .ib:hover{background:var(--field2)}
 .taskctl .ib.stop{color:var(--danger)}
@@ -1357,8 +1361,31 @@ function drawDrive() {
     ${rem.length ? `<div class="row" style="margin-top:6px">${rem.length > 1 ? `<select onchange="DRV.remote=this.value;DRV.path='';driveBrowse()">${rem.map(r => `<option ${r.name === DRV.remote ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>` : ''}
         <span class="mut grow">${esc(DRV.remote || rem[0].name)}:/${esc(DRV.path)}</span>${DRV.path ? `<button class="btn ghost" style="height:24px" onclick="DRV.path=DRV.path.split('/').slice(0,-1).join('/');driveBrowse()">Up</button>` : ''}</div>
       <div class="list" id="drvlist" style="margin-top:6px">${DRV.browse ? DRV.browse.map((x, i) => `<div class="${!x.dir && pickSrc('rclone:' + DRV.remote + ':' + x.path) ? 'on' : ''}" onclick="driveOpen(${i})">${ico(x.dir ? 'folder' : 'film')}<span style="flex:1;min-width:0">${esc(x.name)}${x.dir ? '' : `<br><small>${(x.size / 1e9).toFixed(2)} GB</small>`}</span></div>`).join('') || '<div class="mut">No videos here.</div>' : '<div class="mut">Loading…</div>'}</div>`
-    : `<p class="mut" style="margin:6px 0 0">To browse your whole Drive (not just shared links), connect it once with rclone: install it, run <code>rclone config</code>, add a remote of type “drive” and sign in to Google. It then appears here.</p>`}</div></div>`;
+    : driveConnectBox()}</div></div>`;
   if (rem.length && !DRV.browse) { DRV.remote = DRV.remote || rem[0].name; driveBrowse(); }
+}
+let DCON = null;
+function driveConnectBox() {
+  const st = DCON && DCON.status;
+  if (st === 'installing' || st === 'starting') return `<div class="dcon"><span class="spin"></span><span>Getting ready…</span></div>`;
+  if (st === 'waiting') return `<div class="dcon"><div><b>Sign in with Google</b><p class="mut">Choose your account and allow read-only access to Drive.${location.hostname !== '127.0.0.1' && location.hostname !== 'localhost' ? ' Do this on the computer running Designer Studio.' : ''}</p></div>
+    <a class="btn pri" href="${esc(DCON.url)}" target="_blank" rel="noopener">${ico('drive')}Open Google sign-in</a></div>`;
+  return `<div class="dcon"><div><b>Browse all your Drive videos</b><p class="mut">${st === 'error' ? esc(DCON.error) : 'Sign in with Google once. Read-only: nothing in your Drive is changed.'}</p></div>
+    <button class="btn pri" onclick="driveConnect()">${ico('drive')}Connect Google Drive</button></div>`;
+}
+async function driveConnect() {
+  DCON = await api('/api/drive/connect', {method: 'POST'}); drawDrive();
+  if (DCON.url) window.open(DCON.url, '_blank', 'noopener');
+  let opened = !!DCON.url;
+  for (let i = 0; i < 300; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    DCON = await api('/api/drive/status');
+    if (DCON.url && !opened) { opened = true; window.open(DCON.url, '_blank', 'noopener'); }
+    if (DCON.status === 'connected') { DRV.src = await api('/api/sources'); DRV.browse = null; toast('Google Drive connected'); break; }
+    if (DCON.status === 'error' || DCON.status === 'idle') break;
+    if (!$('#drivePanel')) return;
+  }
+  drawDrive();
 }
 async function driveFind() {
   const url = $('#drvurl').value.trim(); if (!url) return toast('Paste a link');

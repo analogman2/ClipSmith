@@ -161,12 +161,14 @@ def fetch_rclone(spec, dest):
     """Copy a file from a cloud drive set up in rclone ("rclone:gdrive:Videos/talk.mp4") to dest."""
     import shutil as _sh
     remote_path = spec[len("rclone:"):]
-    if not _sh.which("rclone"):
-        raise SystemExit("rclone isn't installed (needed for My Drive).")
+    import drive_connect
+    exe = drive_connect.rclone()
+    if not exe:
+        raise SystemExit("Google Drive isn't connected yet.")
     dest.mkdir(parents=True, exist_ok=True)
     out = dest / Path(remote_path.split(":", 1)[1]).name
     log(f"[0/4] copying {out.name} from your drive...", 0.01)
-    r = subprocess.run(["rclone", "copyto", remote_path, str(out)], capture_output=True, text=True)
+    r = subprocess.run([exe, "copyto", remote_path, str(out)], capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f"Couldn't copy from your drive: {r.stderr.strip()[-200:]}")
     return out
