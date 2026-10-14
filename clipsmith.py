@@ -112,23 +112,30 @@ def transcribe(video, work, model_name, language, force):
     load_cuda12_libs()
     from faster_whisper import BatchedInferencePipeline, WhisperModel
     t0 = time.time()
-    try:
-        model = WhisperModel(model_name, device="cuda", compute_type="float16")
-    except Exception as e:  # noqa: BLE001
-        log(f"[1/4] CUDA unavailable ({e}); transcribing on CPU (slow)")
-        model = WhisperModel(model_name, device="cpu", compute_type="int8")
-    log(f"[1/4] transcribing with Whisper {model_name}...")
-    pipe = BatchedInferencePipeline(model=model)
-    segments, tinfo = pipe.transcribe(audio, batch_size=16, word_timestamps=True, vad_filter=True,
-                                      language=language)
-    words = []
-    for seg in segments:
-        for w in seg.words or []:
-            text = w.word.strip()
-            if text:
-                words.append({"w": text, "s": round(w.start, 3), "e": round(w.end, 3)})
-    del pipe, model
-    gc.collect()
+    # GPU only, never the CPU. The GPU is shared (Ollama, ComfyUI...), so retry with smaller batches.
+    attempts = [("cuda", "float16", 16), ("cuda", "float16", 4)]
+    for device, ctype, batch in attempts:
+        try:
+            model = WhisperModel(model_name, device=device, compute_type=ctype)
+            pipe = BatchedInferencePipeline(model=model)
+            log(f"[1/4] transcribing with Whisper {model_name} ({device}, {ctype})...")
+            segments, tinfo = pipe.transcribe(audio, batch_size=batch, word_timestamps=True, vad_filter=True,
+                                              language=language)
+            words = []
+            for seg in segments:
+                for w in seg.words or []:
+                    text = w.word.strip()
+                    if text:
+                        words.append({"w": text, "s": round(w.start, 3), "e": round(w.end, 3)})
+            break
+        except Exception as e:  # noqa: BLE001
+            if batch == attempts[-1][2]:
+                sys.exit(f"Whisper can't run on the GPU ({str(e)[:100]}). Free some VRAM (check "
+                         "`nvidia-smi` and `ollama ps`) and try again. clipsmith never falls back to the CPU.")
+            log(f"[1/4] GPU attempt failed ({str(e)[:80]}); retrying with a smaller batch")
+        finally:
+            pipe = model = None
+            gc.collect()
     data = {"language": tinfo.language, "words": words}
     cache.write_text(json.dumps(data))
     log(f"[1/4] transcribed {len(words)} words in {time.time() - t0:.0f}s (language: {tinfo.language})")
